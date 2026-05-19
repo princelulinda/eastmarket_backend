@@ -1,0 +1,12 @@
+diff --git a/node_modules/@medusajs/core-flows/dist/cart/workflows/get-variants-and-items-with-prices.js b/node_modules/@medusajs/core-flows/dist/cart/workflows/get-variants-and-items-with-prices.js
+index 1111111..2222222 100644
+--- a/node_modules/@medusajs/core-flows/dist/cart/workflows/get-variants-and-items-with-prices.js
++++ b/node_modules/@medusajs/core-flows/dist/cart/workflows/get-variants-and-items-with-prices.js
+@@ -105,9 +105,9 @@ exports.getVariantsAndItemsWithPrices = (0, workflows_sdk_1.createWorkflow)(expo
+             if (variant && !isCustomPrice) {
+-                input.unitPrice = calculatedPriceSet.calculated_amount;
++                input.unitPrice = calculatedPriceSet?.calculated_amount;
+                 input.isTaxInclusive =
+-                    calculatedPriceSet.is_calculated_price_tax_inclusive;
++                    calculatedPriceSet?.is_calculated_price_tax_inclusive;
+             }
