@@ -28,7 +28,9 @@ const Vendor = model.define("vendor", {
   response_time: model.text().nullable(),     // "within 1 hour" | "within 24 hours" etc.
   admins: model.hasMany(() => VendorAdmin, {
     mappedBy: "vendor",
-  })
+  }),
+  // Financial
+  balance: model.number().default(0)
 })
 
 export default Vendor

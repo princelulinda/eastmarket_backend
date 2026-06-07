@@ -3,6 +3,7 @@ import { ContainerRegistrationKeys } from "@medusajs/framework/utils"
 import { NOTIFICATION_MODULE } from "../modules/notification-center"
 import NotificationCenterService from "../modules/notification-center/service"
 import { getIO } from "../modules/socket/service"
+import { sendPushNotification } from "../modules/notification-center/push-service"
 
 // ── New Order ──────────────────────────────────────────────────────────────
 
@@ -51,6 +52,13 @@ export default async function orderPlacedHandler({
         count: vendorCount,
       })
     }
+
+    // Push Notification for Vendor
+    const tokens = await notifService.getRecipientTokens(vendorId)
+    console.log(tokens, vendorId, )
+    if (tokens.length > 0) {
+      await sendPushNotification(tokens.map(t => t.token), "Nouvelle commande", `Commande #${order.display_id} reçue.`, { order_id: order.id })
+    }
   }
 
   const io = getIO()
@@ -60,6 +68,14 @@ export default async function orderPlacedHandler({
       notification: customerNotif,
       count: customerCount,
     })
+  }
+
+  // Push Notification for Customer
+  const customerTokens = await notifService.getRecipientTokens(order.customer_id)
+    console.log(customerTokens)
+
+  if (customerTokens.length > 0) {
+    await sendPushNotification(customerTokens.map(t => t.token), "Commande confirmée", `Votre commande #${order.display_id} a été confirmée.`, { order_id: order.id })
   }
 }
 

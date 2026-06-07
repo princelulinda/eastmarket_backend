@@ -11,8 +11,19 @@ export const GET = async (
   res: MedusaResponse
 ) => {
   const service = req.scope.resolve(SHORT_VIDEO_MODULE) as ShortVideoService
+  const query = req.scope.resolve("query")
+
   const video = await service.retrieveShortVideo(req.params.id)
   
+  if (video.product_ids && video.product_ids.length > 0) {
+    const { data: products } = await query.graph({
+      entity: "product",
+      fields: ["id", "title", "thumbnail", "variants.prices.*"],
+      filters: { id: video.product_ids }
+    })
+    ;(video as any).products = products
+  }
+
   res.json({ video })
 }
 

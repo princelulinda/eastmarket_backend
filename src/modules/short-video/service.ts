@@ -1,4 +1,4 @@
-import { MedusaService } from "@medusajs/framework/utils"
+import { MedusaService, Modules } from "@medusajs/framework/utils"
 import ShortVideo from "./models/short-video"
 import VideoLike from "./models/video-like"
 import VideoComment from "./models/video-comment"
@@ -15,34 +15,51 @@ type CreateVideoInput = {
   product_ids?: string[]
 }
 
-// MedusaService pluralizes "ShortVideo" → "ShortVideoes" (ends in vowel+o)
+// MedusaService handles CRUD operations for the models defined
+// MedusaService handles CRUD operations for the models defined
 class ShortVideoService extends MedusaService({ ShortVideo, VideoLike, VideoComment, VideoSave }) {
+  protected container_: any
 
-  async createVideo(input: CreateVideoInput) {
-    return await this.createShortVideoes({
+  constructor(container: any) {
+    super(container)
+    this.container_ = container
+  }
+
+  async createVideo(input: CreateVideoInput, eventBus: any) {
+    const video = await this.createShortVideos({
       ...input,
       product_ids: input.product_ids || null,
       status: "draft",
     } as any)
+
+    await eventBus.emit({
+      name: "short_video.created",
+      data: {
+        id: video.id,
+        video_url: video.video_url,
+      },
+    })
+
+    return video
   }
 
   async updateVideo(id: string, update: Record<string, any>) {
-    return await this.updateShortVideoes({ id, ...update } as any)
+    return await this.updateShortVideos({ id, ...update } as any)
   }
 
   async markAsProcessed(id: string, hlsUrl: string) {
-    return await this.updateShortVideoes({ id, hls_url: hlsUrl, status: "published" } as any)
+    return await this.updateShortVideos({ id, hls_url: hlsUrl, status: "published" } as any)
   }
 
   async getFeed(limit = 10, offset = 0) {
-    return await this.listShortVideoes(
+    return await this.listShortVideos(
       { status: "published" } as any,
       { take: limit, skip: offset, order: { created_at: "DESC" } }
     )
   }
 
   async getVendorVideos(vendorId: string) {
-    return await this.listShortVideoes(
+    return await this.listShortVideos(
       { vendor_id: vendorId } as any,
       { order: { created_at: "DESC" } }
     )
@@ -55,13 +72,13 @@ class ShortVideoService extends MedusaService({ ShortVideo, VideoLike, VideoComm
     if (existing.length > 0) {
       await this.deleteVideoLikes(existing[0].id)
       const newCount = Math.max(0, video.likes_count - 1)
-      await this.updateShortVideoes({ id: videoId, likes_count: newCount } as any)
+      await this.updateShortVideos({ id: videoId, likes_count: newCount } as any)
       return { liked: false, likes_count: newCount }
     }
 
     await this.createVideoLikes({ video_id: videoId, customer_id: customerId } as any)
     const newCount = video.likes_count + 1
-    await this.updateShortVideoes({ id: videoId, likes_count: newCount } as any)
+    await this.updateShortVideos({ id: videoId, likes_count: newCount } as any)
     return { liked: true, likes_count: newCount }
   }
 
@@ -77,39 +94,53 @@ class ShortVideoService extends MedusaService({ ShortVideo, VideoLike, VideoComm
     return { saved: true }
   }
 
-  async addComment(videoId: string, customerId: string, content: string) {
+  async addComment(videoId: string, customerId: string | null, content: string, parentId?: string, vendorId?: string) {
     const comment = await this.createVideoComments({
       video_id: videoId,
       customer_id: customerId,
       content,
+      parent_id: parentId || null,
+      vendor_id: vendorId || null,
     } as any)
     const video = await this.retrieveShortVideo(videoId)
-    await this.updateShortVideoes({ id: videoId, comments_count: video.comments_count + 1 } as any)
+    await this.updateShortVideos({ id: videoId, comments_count: video.comments_count + 1 } as any)
     return comment
   }
 
+
   async getComments(videoId: string, limit = 20, offset = 0) {
-    return await this.listVideoComments(
+    const comments = await this.listVideoComments(
       { video_id: videoId } as any,
       { take: limit, skip: offset, order: { created_at: "DESC" } }
     )
+
+    return comments
   }
 
   async incrementView(videoId: string) {
     const video = await this.retrieveShortVideo(videoId)
-    await this.updateShortVideoes({ id: videoId, views_count: video.views_count + 1 } as any)
+    await this.updateShortVideos({ id: videoId, views_count: video.views_count + 1 } as any)
   }
 
   async incrementShare(videoId: string) {
     const video = await this.retrieveShortVideo(videoId)
-    await this.updateShortVideoes({ id: videoId, shares_count: video.shares_count + 1 } as any)
+    await this.updateShortVideos({ id: videoId, shares_count: video.shares_count + 1 } as any)
   }
 
   async getSavedVideos(customerId: string) {
     const saves = await this.listVideoSaves({ customer_id: customerId } as any)
     if (saves.length === 0) return []
     const videoIds = saves.map((s: any) => s.video_id)
-    return await this.listShortVideoes({ id: videoIds } as any, { order: { created_at: "DESC" } })
+    return await this.listShortVideos({ id: videoIds } as any, { order: { created_at: "DESC" } })
+  }
+
+  async getVideosByProduct(productId: string) {
+    // Since product_ids is a JSON column, we use a filter to check if the array contains the productId.
+    // Assuming the MedusaService/MikroORM implementation supports JSON array contains query.
+    return await this.listShortVideos(
+      { product_ids: { $contains: [productId] } } as any,
+      { order: { created_at: "DESC" } }
+    )
   }
 }
 

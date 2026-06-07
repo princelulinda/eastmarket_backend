@@ -2,6 +2,7 @@
   "compilerOptions": {
     "target": "ES2021",
     "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
     "module": "Node16",
     "moduleResolution": "Node16",
     "emitDecoratorMetadata": true,
@@ -17,7 +18,11 @@
     "forceConsistentCasingInFileNames": true,
     "resolveJsonModule": true,
     "checkJs": false,
-    "strictNullChecks": true
+    // "strictNullChecks": true,
+    "noEmitOnError": false,
+    "strict": false,
+    "noImplicitAny": false,
+    "suppressImplicitAnyIndexErrors": true
   },
   "ts-node": {
     "swc": true

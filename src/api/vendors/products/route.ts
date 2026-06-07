@@ -20,7 +20,12 @@ export const GET = async (
 
   const { data: [vendorAdmin] } = await query.graph({
     entity: "vendor_admin",
-    fields: ["vendor.products.*", "vendor.products.variants.*", "vendor.products.variants.prices.*"],
+    fields: [
+      "vendor.products.*", 
+      "vendor.products.variants.*", 
+      "vendor.products.variants.prices.*",
+      "vendor.products.variants.inventory.location_levels.*"
+    ],
     filters: { id: [req.auth_context.actor_id] },
   })
 

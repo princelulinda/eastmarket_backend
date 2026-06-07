@@ -1,5 +1,6 @@
 import { MedusaService } from "@medusajs/framework/utils"
 import AppNotification from "./models/notification"
+import PushToken from "./models/push-token"
 
 type CreateNotificationInput = {
   recipient_id: string
@@ -10,7 +11,25 @@ type CreateNotificationInput = {
   data?: Record<string, any>
 }
 
-class NotificationCenterService extends MedusaService({ AppNotification }) {
+class NotificationCenterService extends MedusaService({ AppNotification, PushToken }) {
+
+  async registerPushToken(input: {
+    recipient_id: string
+    recipient_type: "customer" | "vendor"
+    token: string
+    device_type?: string
+  }) {
+    // Check if token already exists to update or create
+    const existing = await this.listPushTokens({ recipient_id: input.recipient_id, token: input.token })
+    if (existing.length > 0) {
+      return existing[0]
+    }
+    return await this.createPushTokens(input)
+  }
+
+  async getRecipientTokens(recipientId: string) {
+    return await this.listPushTokens({ recipient_id: recipientId })
+  }
 
   async createNotification(input: CreateNotificationInput) {
     return await this.createAppNotifications({

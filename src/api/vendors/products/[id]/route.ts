@@ -22,7 +22,17 @@ export const GET = async (req: AuthenticatedMedusaRequest, res: MedusaResponse) 
   const query = req.scope.resolve(ContainerRegistrationKeys.QUERY)
   const { data: [product] } = await query.graph({
     entity: "product",
-    fields: ["*", "variants.*", "variants.prices.*", "options.*", "options.values.*", "images.*", "categories.*", "tags.*"],
+    fields: [
+      "*", 
+      "variants.*", 
+      "variants.prices.*", 
+      "variants.inventory.location_levels.*",
+      "options.*", 
+      "options.values.*", 
+      "images.*", 
+      "categories.*", 
+      "tags.*"
+    ],
     filters: { id: req.params.id }
   })
 
