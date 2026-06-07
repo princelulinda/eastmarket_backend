@@ -38,6 +38,28 @@ module.exports = defineConfig({
       resolve: "@medusajs/medusa/event-bus-local",
     },
     {
+      resolve: "@medusajs/medusa/file",
+      options: {
+        providers: [
+          {
+            resolve: "@medusajs/medusa/file-s3",
+            id: "s3",
+            options: {
+              file_url: process.env.MINIO_FILE_URL,
+              access_key_id: process.env.MINIO_ACCESS_KEY,
+              secret_access_key: process.env.MINIO_SECRET_KEY,
+              region: process.env.MINIO_REGION || "us-east-1",
+              bucket: process.env.MINIO_BUCKET,
+              endpoint: process.env.MINIO_ENDPOINT,
+              additional_client_config: {
+                forcePathStyle: true,
+              },
+            },
+          },
+        ],
+      },
+    },
+    {
       resolve: "@medusajs/medusa/fulfillment",
       options: {
         providers: [
