@@ -18,11 +18,13 @@ import { PostVendorVideoSchema } from "./vendors/videos/route"
 import { PutVendorVideoSchema } from "./vendors/videos/[id]/route"
 import { PostVendorStockLocationSchema } from "./vendors/stock-locations/route"
 import { PostVendorPromotionSchema } from "./vendors/promotions/route"
+import { PostVendorPayoutSchema } from "./vendors/payouts/route"
 import { PostVendorInventorySchema } from "./vendors/products/[id]/variants/[variant_id]/inventory/route"
 import { trackProductClick } from "./middlewares/analytics"
 import { PostCommentSchema } from "./store/videos/[id]/comments/route"
 import { PostAdminCreateDeliveryCompanySchema } from "./admin/delivery-companies/route"
 import { PostAdminCreateDeliveryDriverSchema } from "./admin/delivery-companies/[id]/drivers/route"
+import { PostAdminRejectPayoutSchema } from "./admin/payouts/[id]/reject/route"
 import multer from "multer"
 import { ContainerRegistrationKeys } from "@medusajs/framework/utils"
 
@@ -176,6 +178,28 @@ export default defineMiddlewares({
         validateAndTransformBody(PostAdminCreateDeliveryDriverSchema),
       ],
     },
+    {
+      matcher: "/admin/payouts",
+      method: ["GET"],
+      middlewares: [
+        authenticate("user", ["session", "bearer"]),
+      ],
+    },
+    {
+      matcher: "/admin/payouts/:id/approve",
+      method: ["POST"],
+      middlewares: [
+        authenticate("user", ["session", "bearer"]),
+      ],
+    },
+    {
+      matcher: "/admin/payouts/:id/reject",
+      method: ["POST"],
+      middlewares: [
+        authenticate("user", ["session", "bearer"]),
+        validateAndTransformBody(PostAdminRejectPayoutSchema),
+      ],
+    },
 
     // ─── VENDOR AUTH ──────────────────────────────────────────────
     {
@@ -207,12 +231,19 @@ export default defineMiddlewares({
     {
       matcher: "/vendors/me",
       method: ["PUT"],
-      middlewares: [validateAndTransformBody(PutVendorMeSchema)],
+      middlewares: [
+        validateAndTransformBody(PutVendorMeSchema)
+      ],
     },
     {
       matcher: "/vendors/stock-locations",
       method: ["POST"],
       middlewares: [validateAndTransformBody(PostVendorStockLocationSchema)],
+    },
+    {
+      matcher: "/vendors/payouts",
+      method: ["POST"],
+      middlewares: [validateAndTransformBody(PostVendorPayoutSchema)],
     },
     {
       matcher: "/vendors/promotions",
@@ -445,11 +476,11 @@ export default defineMiddlewares({
     },
     {
       matcher: "/store/payment-methods",
-      middlewares: [authenticate("customer", ["session", "bearer"])],
+      middlewares: [authenticate(["customer","vendor"], ["session", "bearer"])],
     },
     {
       matcher: "/store/payment-methods/*",
-      middlewares: [authenticate("customer", ["session", "bearer"])],
+      middlewares: [authenticate(["customer","vendor"], ["session", "bearer"])],
     },
   ],
 })

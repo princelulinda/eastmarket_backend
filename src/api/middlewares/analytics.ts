@@ -4,7 +4,7 @@ import {
   MedusaNextFunction 
 } from "@medusajs/framework/http"
 import { ContainerRegistrationKeys, Modules } from "@medusajs/framework/utils"
-import AnalyticsService from "../modules/analytics/service"
+import AnalyticsService from "../../modules/analytics/service"
 
 export async function trackProductClick(
   req: MedusaRequest,

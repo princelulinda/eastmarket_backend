@@ -45,7 +45,7 @@ export const GET = async (req: AuthenticatedMedusaRequest, res: MedusaResponse) 
       "vendor.address", "vendor.founded_year", "vendor.business_type",
       "vendor.main_products", "vendor.employee_count", "vendor.social_links",
       "vendor.is_verified", "vendor.response_rate", "vendor.response_time",
-      "vendor.admins.*"
+      "vendor.balance", "vendor.admins.*"
     ],
     filters: { id: [req.auth_context.actor_id] }
   })

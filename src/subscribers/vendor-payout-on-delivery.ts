@@ -1,19 +1,18 @@
 import { SubscriberArgs, type SubscriberConfig } from "@medusajs/framework"
+import { ContainerRegistrationKeys } from "@medusajs/framework/utils"
 import MarketplaceModuleService from "../../modules/marketplace/service"
 
 export default async function vendorPayoutOnDeliveryHandler({
   event: { data },
   container,
 }: SubscriberArgs<{ id: string, order_id: string }>) {
-  // En Medusa v2, selon l'événement, vous pourriez avoir { id: string } (ID de l'order)
-  // ou { id, order_id } (ID du fulfillment et de l'order).
-  // On récupère l'order_id (si on écoute fulfillment) ou l'id (si on écoute order)
   const orderId = data.order_id || data.id;
 
   if (!orderId) return;
 
   const orderModule = container.resolve("order")
   const marketplaceModule = container.resolve("marketplace") as MarketplaceModuleService
+  const query = container.resolve(ContainerRegistrationKeys.QUERY)
 
   try {
     // 1. Récupérer la commande avec ses articles
@@ -23,16 +22,26 @@ export default async function vendorPayoutOnDeliveryHandler({
 
     // 2. Parcourir les articles pour rémunérer les vendeurs
     for (const item of order.items) {
-      // Supposons que vous stockez l'ID du vendeur dans les métadonnées de l'article
-      const vendorId = item.metadata?.vendor_id as string | undefined;
+      // Tenter de récupérer le vendeur depuis les métadonnées de l'article
+      let vendorId = item.metadata?.vendor_id as string | undefined;
+      
+      // Si absent, interroger la relation produit-vendeur via le Query Graph
+      if (!vendorId && item.product_id) {
+        const { data: products } = await query.graph({
+          entity: "product",
+          fields: ["id", "vendor.id"],
+          filters: { id: item.product_id }
+        })
+        vendorId = products[0]?.vendor?.id
+      }
       
       if (vendorId) {
-        // Logique de commission : par exemple, la marketplace garde 10%
+        // Logique de commission : la marketplace garde 10%
         const commissionRate = 0.10; 
         
         // Calcul du montant qui revient au vendeur (Prix unitaire * quantité - commission)
         const itemTotal = Number(item.unit_price) * Number(item.quantity);
-        const amountForVendor = itemTotal * (1 - commissionRate);
+        const amountForVendor = Math.round(itemTotal * (1 - commissionRate));
         
         // 3. Libérer l'argent au vendeur
         await marketplaceModule.addVendorBalance(vendorId, amountForVendor)
@@ -46,9 +55,7 @@ export default async function vendorPayoutOnDeliveryHandler({
 }
 
 export const config: SubscriberConfig = {
-  // Événement déclencheur. 
-  // Remplacez par "fulfillment.delivered" ou tout autre événement généré par votre module "delivery" 
-  // lorsque le colis est officiellement remis au client.
-  // Par défaut dans Medusa natif, "order.fulfillment_created" indique que l'expédition est gérée.
-  event: "order.fulfillment_created", 
+  // Événement déclencheur : déclenché au moment de la livraison du colis
+  event: "order.fulfillment_delivered", 
 }
+

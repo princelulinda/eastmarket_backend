@@ -5,12 +5,11 @@ export async function GET(
   res: MedusaResponse
 ) {
   try {
-    // Récupérer la devise depuis les paramètres de l'URL (ex: ?currency=XAF)
-    const currency = "bif";
+    const currency = req.query.currency as string;
 
     if (!currency) {
       // Si la devise n'est pas fournie par le Storefront, renvoyer une erreur 400
-      return res.status(400).json({ error: "Le paramètre 'currency' est requis (ex: ?currency=XAF)" });
+      return res.status(400).json({ error: "Le paramètre 'currency' est requis (ex: ?currency=USD)" });
     }
 
     const apiUrl = process.env.KASHFLOW_API_URL || "https://api.kashflow-service.com"

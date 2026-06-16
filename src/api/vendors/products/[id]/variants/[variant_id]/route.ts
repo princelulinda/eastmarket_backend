@@ -36,12 +36,21 @@ export const PUT = async (req: AuthenticatedMedusaRequest, res: MedusaResponse) 
   const { id, variant_id } = req.params
   await assertProductOwnership(req, id)
 
+  let updateData = req.body
+  if (Array.isArray(req.body)) {
+    updateData = req.body[0]
+  }
+
+  if (typeof updateData !== 'object' || updateData === null) {
+    throw new MedusaError(MedusaError.Types.INVALID_DATA, "Invalid request body: Expected an object")
+  }
+
   const productModule = req.scope.resolve(Modules.PRODUCT)
   
   const variant = await productModule.updateProductVariants([
     {
       id: variant_id,
-      ...req.body,
+      ...updateData,
     },
   ])
   

@@ -1,5 +1,6 @@
 import { model } from "@medusajs/framework/utils"
 import VendorAdmin from "./vendor-admin"
+import VendorPayout from "./vendor-payout"
 
 const Vendor = model.define("vendor", {
   id: model.id().primaryKey(),
@@ -29,8 +30,12 @@ const Vendor = model.define("vendor", {
   admins: model.hasMany(() => VendorAdmin, {
     mappedBy: "vendor",
   }),
+  payouts: model.hasMany(() => VendorPayout, {
+    mappedBy: "vendor",
+  }),
   // Financial
   balance: model.number().default(0)
 })
 
 export default Vendor
+
