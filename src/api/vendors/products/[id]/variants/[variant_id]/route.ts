@@ -1,5 +1,6 @@
 import { AuthenticatedMedusaRequest, MedusaResponse } from "@medusajs/framework/http"
 import { ContainerRegistrationKeys, MedusaError, Modules } from "@medusajs/framework/utils"
+import { updateProductVariantsWorkflow } from "@medusajs/medusa/core-flows"
 
 async function assertProductOwnership(req: AuthenticatedMedusaRequest, productId: string): Promise<void> {
   const query = req.scope.resolve(ContainerRegistrationKeys.QUERY)
@@ -45,16 +46,18 @@ export const PUT = async (req: AuthenticatedMedusaRequest, res: MedusaResponse) 
     throw new MedusaError(MedusaError.Types.INVALID_DATA, "Invalid request body: Expected an object")
   }
 
-  const productModule = req.scope.resolve(Modules.PRODUCT)
-  
-  const variant = await productModule.updateProductVariants([
-    {
-      id: variant_id,
-      ...updateData,
+  const { result } = await updateProductVariantsWorkflow(req.scope).run({
+    input: {
+      product_variants: [
+        {
+          id: variant_id,
+          ...updateData,
+        },
+      ],
     },
-  ])
+  })
   
-  res.json({ variant: variant[0] })
+  res.json({ variant: result[0] })
 }
 
 export const DELETE = async (req: AuthenticatedMedusaRequest, res: MedusaResponse) => {

@@ -73,7 +73,7 @@ class KashFlowPaymentService extends AbstractPaymentProvider {
 
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}))
-      console.error("KashFlow API Error:", errorData)
+      console.error("KashFlow API Error:", errorData, "HHHHH")
       throw new MedusaError(
         MedusaError.Types.INVALID_DATA,
         errorData.message || `API Error: ${response.status}`
@@ -108,8 +108,8 @@ class KashFlowPaymentService extends AbstractPaymentProvider {
   }
 async initiatePayment(input: InitiatePaymentInput): Promise<InitiatePaymentOutput> {
   const payload = {
-    amount: input.amount,
-    currency: "bif",
+    amount: 10,
+    currency: "usd",
     payment_method: input.data?.payment_method,
     initiator: input.data?.initiator,
     vendor_email: input.data?.vendor_email,
@@ -117,6 +117,7 @@ async initiatePayment(input: InitiatePaymentInput): Promise<InitiatePaymentOutpu
     reference: input.context?.customer?.id || "unknown",
     app_reference: input.context?.order_id || input.context?.cart_id || "unknown",
   }
+  console.log(payload)
 
   const kashflowResponse = await this.kashflowRequest("/payments/initialize", "POST", payload)
 
