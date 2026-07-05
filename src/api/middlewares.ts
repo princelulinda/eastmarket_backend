@@ -338,6 +338,20 @@ export default defineMiddlewares({
       ],
     },
 
+    // ─── STORE — CUSTOMERS ────────────────────────────────────────
+    {
+      matcher: "/store/customers/me/coupons",
+      middlewares: [
+        authenticate("customer", ["session", "bearer"]),
+      ],
+    },
+    {
+      matcher: "/store/customers/me/wishlist",
+      middlewares: [
+        authenticate("customer", ["session", "bearer"]),
+      ],
+    },
+
     // ─── STORE — CART LINE ITEMS ──────────────────────────────────
     {
       matcher: "/store/*",

@@ -5006,6 +5006,13 @@
   resolved "https://registry.npmjs.org/@remix-run/router/-/router-1.23.2.tgz"
   integrity sha512-Ic6m2U/rMjTkhERIa/0ZtXJP17QUi2CbWE7cqx4J58M8aA3QTfW+2UlQ4psvTX9IO1RfNVhK3pcpdjej7L+t2w==
 
+"@rokmohar/medusa-plugin-meilisearch@^1.4.3":
+  version "1.4.3"
+  resolved "https://registry.npmjs.org/@rokmohar/medusa-plugin-meilisearch/-/medusa-plugin-meilisearch-1.4.3.tgz"
+  integrity sha512-+iStv5sc2vuLk+O7OcQLlNR99fMBhGdBOJMCmDJYoTFGhzBA4ZEV18IIr2xqxUDgdQo1haF0TtYv3JmRQUuY1w==
+  dependencies:
+    meilisearch "^0.56.0"
+
 "@rollup/rollup-linux-x64-gnu@4.30.1":
   version "4.30.1"
   resolved "https://registry.npmjs.org/@rollup/rollup-linux-x64-gnu/-/rollup-linux-x64-gnu-4.30.1.tgz"
@@ -9192,6 +9199,11 @@ medusa-react@^9.0.18:
   integrity sha512-3xSw3MuH7OEX6Tz21Tthev2+1Mk/S1nI6qsqgRqUl4prZTcRFgHXq421hPeqd1RoX2h8SO2Ap1/qObc2da3tCg==
   dependencies:
     "@medusajs/medusa-js" "*"
+
+meilisearch@^0.56.0:
+  version "0.56.0"
+  resolved "https://registry.npmjs.org/meilisearch/-/meilisearch-0.56.0.tgz"
+  integrity sha512-kBXba8DcSrLWHYqopCm2JL90oBy97VdIfHkP1ii7/eHufeEEEk9Zu5Vv/IFQpNzmhEpWszVFVlGvZoI6QJeGzA==
 
 merge-descriptors@1.0.3:
   version "1.0.3"

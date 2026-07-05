@@ -27,6 +27,7 @@
     "@medusajs/cli": "2.13.1",
     "@medusajs/framework": "2.13.1",
     "@medusajs/medusa": "2.13.1",
+    "@rokmohar/medusa-plugin-meilisearch": "^1.4.3",
     "@types/bcryptjs": "^2.4.6",
     "bcryptjs": "^3.0.3",
     "expo-server-sdk": "^6.1.0",
