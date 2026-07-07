@@ -2,6 +2,7 @@ import { MedusaRequest, MedusaResponse } from "@medusajs/framework/http"
 import { IMarketplaceModuleService } from "../../modules/marketplace"
 import { MARKETPLACE_MODULE } from "../../modules/marketplace"
 import bcrypt from "bcryptjs"
+import { sendEmail, getWelcomeEmailTemplate } from "../../modules/notification-center/email-service"
 
 export async function POST(req: MedusaRequest, res: MedusaResponse) {
   const { email, password, first_name, last_name, vendor_id } = req.body
@@ -26,8 +27,20 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
     vendor: { id: vendor_id }
   })
 
+  // 4. Envoyer un email de bienvenue
+  try {
+    await sendEmail({
+      to: newAdmin.email,
+      subject: "Bienvenue sur East Market !",
+      html: getWelcomeEmailTemplate(`${newAdmin.first_name || ""} ${newAdmin.last_name || ""}`.trim() || newAdmin.email, "vendor")
+    })
+  } catch (err) {
+    console.error(`Failed to send welcome email to vendor admin ${newAdmin.email}:`, err)
+  }
+
   res.status(201).json({ 
     message: "Vendor admin registered successfully",
     vendor_admin: { id: newAdmin.id, email: newAdmin.email }
   })
 }
+

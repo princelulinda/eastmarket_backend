@@ -26,7 +26,9 @@ import { PostAdminCreateDeliveryCompanySchema } from "./admin/delivery-companies
 import { PostAdminCreateDeliveryDriverSchema } from "./admin/delivery-companies/[id]/drivers/route"
 import { PostAdminRejectPayoutSchema } from "./admin/payouts/[id]/reject/route"
 import multer from "multer"
-import { ContainerRegistrationKeys } from "@medusajs/framework/utils"
+import { ContainerRegistrationKeys, Modules } from "@medusajs/framework/utils"
+import jwt from "jsonwebtoken"
+import { MARKETPLACE_MODULE } from "../modules/marketplace"
 
 /**
  * Maps short provider aliases to their full Medusa container key.
@@ -137,8 +139,260 @@ async function validateCartRegion(
 
 const upload = multer()
 
+async function linkGoogleAccountMiddleware(
+  req: MedusaRequest,
+  res: MedusaResponse,
+  next: MedusaNextFunction
+) {
+  const originalJson = res.json
+  const originalRedirect = res.redirect
+
+  // Override res.json
+  res.json = function (this: any, body: any) {
+    if (body && typeof body === "object" && typeof body.token === "string") {
+      const configModule = req.scope.resolve("configModule")
+      const jwtSecret = configModule.projectConfig.http.jwtSecret || "supersecret"
+
+      try {
+        const decoded = jwt.verify(body.token, jwtSecret) as any
+
+        if (decoded && decoded.auth_identity_id && !decoded.actor_id) {
+          const authIdentityId = decoded.auth_identity_id
+          const actorType = decoded.actor_type || "customer"
+          const email = decoded.user_metadata?.email
+          const name = decoded.user_metadata?.name || ""
+          const givenName = decoded.user_metadata?.given_name || name.split(" ")[0] || ""
+          const familyName = decoded.user_metadata?.family_name || name.split(" ").slice(1).join(" ") || ""
+          console.log(decoded.user_metadata)
+          if (email) {
+            (async () => {
+              try {
+                let actorId = ""
+
+                if (actorType === "customer") {
+                  const customerModule = req.scope.resolve(Modules.CUSTOMER)
+                  const remoteLink = req.scope.resolve("remoteLink")
+
+                  const customers = await customerModule.listCustomers({ email })
+                  let customer = customers[0]
+
+                  if (!customer) {
+                    customer = await customerModule.createCustomers({
+                      email,
+                      first_name: givenName,
+                      last_name: familyName,
+                    })
+                  }
+
+                  actorId = customer.id
+
+                  try {
+                    await remoteLink.create({
+                      [Modules.CUSTOMER]: {
+                        customer_id: customer.id,
+                      },
+                      [Modules.AUTH]: {
+                        auth_identity_id: authIdentityId,
+                      },
+                    })
+                  } catch (e) {
+                    // ignore if link exists
+                  }
+
+                  const authModule = req.scope.resolve(Modules.AUTH)
+                  await authModule.updateAuthIdentities([
+                    {
+                      id: authIdentityId,
+                      app_metadata: {
+                        customer: customer.id,
+                      },
+                    },
+                  ])
+                } else if (actorType === "vendor") {
+                  const marketplaceModule = req.scope.resolve(MARKETPLACE_MODULE)
+                  const vendorAdmins = await marketplaceModule.listVendorAdmins({ email })
+                  const vendorAdmin = vendorAdmins[0]
+
+                  if (vendorAdmin) {
+                    actorId = vendorAdmin.id
+                    const authModule = req.scope.resolve(Modules.AUTH)
+                    await authModule.updateAuthIdentities([
+                      {
+                        id: authIdentityId,
+                        app_metadata: {
+                          vendor: vendorAdmin.id,
+                        },
+                      },
+                    ])
+                  }
+                }
+
+                if (actorId) {
+                  const newPayload = {
+                    ...decoded,
+                    actor_id: actorId,
+                  }
+                  if (!newPayload.app_metadata) {
+                    newPayload.app_metadata = {}
+                  }
+                  newPayload.app_metadata[actorType] = actorId
+
+                  const { iat, exp, ...payloadToSign } = newPayload
+                  const newToken = jwt.sign(payloadToSign, jwtSecret, { expiresIn: "24h" })
+                  
+                  body.token = newToken
+                }
+              } catch (err) {
+                console.error("Error in linkGoogleAccountMiddleware async logic:", err)
+              } finally {
+                originalJson.call(this, body)
+              }
+            })()
+            return this
+          }
+        }
+      } catch (err) {
+        // ignore
+      }
+    }
+    return originalJson.call(this, body)
+  }
+
+  // Override res.redirect
+  res.redirect = function (this: any, url: string) {
+    let urlObj: URL
+    try {
+      urlObj = new URL(url, "http://localhost")
+    } catch (e) {
+      return originalRedirect.call(this, url)
+    }
+
+    const token = urlObj.searchParams.get("token")
+
+    if (token) {
+      const configModule = req.scope.resolve("configModule")
+      const jwtSecret = configModule.projectConfig.http.jwtSecret || "supersecret"
+
+      try {
+        const decoded = jwt.verify(token, jwtSecret) as any
+
+        if (decoded && decoded.auth_identity_id && !decoded.actor_id) {
+          const authIdentityId = decoded.auth_identity_id
+          const actorType = decoded.actor_type || "customer"
+          const email = decoded.user_metadata?.email
+          const name = decoded.user_metadata?.name || ""
+          const givenName = decoded.user_metadata?.given_name || name.split(" ")[0] || ""
+          const familyName = decoded.user_metadata?.family_name || name.split(" ").slice(1).join(" ") || ""
+
+          if (email) {
+            (async () => {
+              try {
+                let actorId = ""
+
+                if (actorType === "customer") {
+                  const customerModule = req.scope.resolve(Modules.CUSTOMER)
+                  const remoteLink = req.scope.resolve("remoteLink")
+
+                  const customers = await customerModule.listCustomers({ email })
+                  let customer = customers[0]
+
+                  if (!customer) {
+                    customer = await customerModule.createCustomers({
+                      email,
+                      first_name: givenName,
+                      last_name: familyName,
+                    })
+                  }
+
+                  actorId = customer.id
+
+                  try {
+                    await remoteLink.create({
+                      [Modules.CUSTOMER]: {
+                        customer_id: customer.id,
+                      },
+                      [Modules.AUTH]: {
+                        auth_identity_id: authIdentityId,
+                      },
+                    })
+                  } catch (e) {
+                    // ignore if link exists
+                  }
+
+                  const authModule = req.scope.resolve(Modules.AUTH)
+                  await authModule.updateAuthIdentities([
+                    {
+                      id: authIdentityId,
+                      app_metadata: {
+                        customer: customer.id,
+                      },
+                    },
+                  ])
+                } else if (actorType === "vendor") {
+                  const marketplaceModule = req.scope.resolve(MARKETPLACE_MODULE)
+                  const vendorAdmins = await marketplaceModule.listVendorAdmins({ email })
+                  const vendorAdmin = vendorAdmins[0]
+
+                  if (vendorAdmin) {
+                    actorId = vendorAdmin.id
+                    const authModule = req.scope.resolve(Modules.AUTH)
+                    await authModule.updateAuthIdentities([
+                      {
+                        id: authIdentityId,
+                        app_metadata: {
+                          vendor: vendorAdmin.id,
+                        },
+                      },
+                    ])
+                  }
+                }
+
+                if (actorId) {
+                  const newPayload = {
+                    ...decoded,
+                    actor_id: actorId,
+                  }
+                  if (!newPayload.app_metadata) {
+                    newPayload.app_metadata = {}
+                  }
+                  newPayload.app_metadata[actorType] = actorId
+
+                  const { iat, exp, ...payloadToSign } = newPayload
+                  const newToken = jwt.sign(payloadToSign, jwtSecret, { expiresIn: "24h" })
+                  
+                  urlObj.searchParams.set("token", newToken)
+                }
+              } catch (err) {
+                console.error("Error in linkGoogleAccountMiddleware redirect async logic:", err)
+              } finally {
+                const finalUrl = url.startsWith("/") 
+                  ? urlObj.pathname + urlObj.search + urlObj.hash
+                  : urlObj.toString()
+                originalRedirect.call(this, finalUrl)
+              }
+            })()
+            return
+          }
+        }
+      } catch (err) {
+        // ignore
+      }
+    }
+    return originalRedirect.call(this, url)
+  }
+
+  next()
+}
+
 export default defineMiddlewares({
   routes: [
+    // ─── GOOGLE AUTH CALLBACK INTERCEPTOR ─────────────────────────
+    {
+      matcher: "/auth/*/google/callback",
+      method: ["GET", "POST"],
+      middlewares: [linkGoogleAccountMiddleware],
+    },
+
     // ─── PAYMENT SESSION — provider_id normalisation ──────────────
     // Maps short IDs ("kashflow", "stripe") to full container keys
     {
@@ -367,16 +621,16 @@ export default defineMiddlewares({
     {
       matcher: "/store/vendors",
       method: ["GET"],
-      middlewares: [
-        authenticate("customer", ["session", "bearer"], { allowUnregistered: true }),
-      ],
+      // middlewares: [
+      //   authenticate("customer", ["session", "bearer"], { allowUnregistered: true }),
+      // ],
     },
     {
       matcher: "/store/vendors/*",
       method: ["GET"],
-      middlewares: [
-        authenticate("customer", ["session", "bearer"], { allowUnregistered: true }),
-      ],
+      // middlewares: [
+      //   authenticate("customer", ["session", "bearer"], { allowUnregistered: true }),
+      // ],
     },
 
     // ─── STORE — NOTIFICATIONS ────────────────────────────────────

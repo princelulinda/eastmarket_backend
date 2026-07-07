@@ -33,6 +33,15 @@ export async function GET(
       })
     }
 
+    // On récupère également le store pour avoir toutes les devises supportées
+    const { data: stores } = await query.graph({
+      entity: "store",
+      fields: ["id", "supported_currencies.*"],
+    })
+    
+    const store = stores && stores.length > 0 ? stores[0] : null;
+    const supportedCurrencies = store?.supported_currencies?.map((c: any) => c.currency_code) || [regions[0].currency_code];
+
     // On renvoie la première région correspondante
     const region = regions[0]
 
@@ -41,6 +50,7 @@ export async function GET(
         id: region.id,
         name: region.name,
         currency_code: region.currency_code,
+        supported_currencies: supportedCurrencies
       },
     })
   } catch (error) {

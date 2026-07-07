@@ -3,6 +3,10 @@ import { ContainerRegistrationKeys } from "@medusajs/framework/utils"
 import { NOTIFICATION_MODULE } from "../modules/notification-center"
 import NotificationCenterService from "../modules/notification-center/service"
 import { getIO } from "../modules/socket/service"
+import {
+  sendEmail,
+  getOrderShippedEmailTemplate
+} from "../modules/notification-center/email-service"
 
 export default async function fulfillmentCreatedHandler({
   event: { data },
@@ -13,7 +17,7 @@ export default async function fulfillmentCreatedHandler({
 
   const { data: [order] } = await query.graph({
     entity: "order",
-    fields: ["id", "display_id", "customer_id"],
+    fields: ["id", "display_id", "customer_id", "email"],
     filters: { id: data.order_id }
   })
 
@@ -28,6 +32,19 @@ export default async function fulfillmentCreatedHandler({
     data: { order_id: order.id, display_id: order.display_id },
   })
 
+  // Notify customer via email
+  if (order.email) {
+    try {
+      await sendEmail({
+        to: order.email,
+        subject: `Votre commande #${order.display_id} a été expédiée - East Market`,
+        html: getOrderShippedEmailTemplate(order)
+      })
+    } catch (err) {
+      console.error(`Failed to send order shipped email to customer ${order.email}:`, err)
+    }
+  }
+
   const io = getIO()
   if (io) {
     const count = await notifService.countUnread(order.customer_id)
@@ -41,3 +58,4 @@ export default async function fulfillmentCreatedHandler({
 export const config: SubscriberConfig = {
   event: "order.fulfillment_created",
 }
+

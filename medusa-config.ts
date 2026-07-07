@@ -1,4 +1,4 @@
-import { loadEnv, defineConfig } from '@medusajs/framework/utils'
+import { loadEnv, defineConfig, Modules, ContainerRegistrationKeys } from '@medusajs/framework/utils'
 
 loadEnv(process.env.NODE_ENV || "development", process.cwd())
 console.log("NODE_ENV =", process.env.NODE_ENV)
@@ -17,6 +17,7 @@ module.exports = defineConfig({
   modules: [
     {
       resolve: "@medusajs/medusa/auth",
+            dependencies: [Modules.CACHE, ContainerRegistrationKeys.LOGGER],
       options: {
         providers: [
           {
