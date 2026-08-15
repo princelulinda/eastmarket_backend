@@ -45,7 +45,7 @@ export const POST = async (req: AuthenticatedMedusaRequest, res: MedusaResponse)
 
   const { data: [vendorAdmin] } = await query.graph({
     entity: "vendor_admin",
-    fields: ["vendor.id"],
+    fields: ["vendor.id", "vendor.name"],
     filters: { id: [req.auth_context.actor_id] }
   })
 
@@ -54,13 +54,23 @@ export const POST = async (req: AuthenticatedMedusaRequest, res: MedusaResponse)
     throw new MedusaError(MedusaError.Types.NOT_FOUND, "Conversation not found")
   }
 
+  const body = req.body as {
+    content?: string
+    type?: string
+    file_url?: string
+    reply_to_id?: string
+    metadata?: Record<string, unknown>
+  }
+
   const message = await chatService.sendMessage({
     conversation_id: id,
     sender_type: "vendor",
     sender_id: vendorAdmin.vendor.id,
-    content: req.body.content,
-    type: req.body.type || "text",
-    file_url: req.body.file_url,
+    content: body.content || "",
+    type: (body.type as any) || "text",
+    file_url: body.file_url,
+    reply_to_id: body.reply_to_id,
+    metadata: body.metadata,
   })
 
   if (io) {
@@ -73,7 +83,7 @@ export const POST = async (req: AuthenticatedMedusaRequest, res: MedusaResponse)
   // Création et envoi de la notification et mise à jour de la liste de conversation
   const notifService: NotificationCenterService = req.scope.resolve(NOTIFICATION_MODULE)
   const recipientId = conversation.customer_id
-  const contentText = req.body.content || ""
+  const contentText = body.content || ""
 
   try {
     // ─── Envoi des mises à jour dynamiques de la liste de conversation (WhatsApp flow) ───
@@ -114,11 +124,15 @@ export const POST = async (req: AuthenticatedMedusaRequest, res: MedusaResponse)
       }
     }
 
+    const pushTitle = vendorAdmin?.vendor?.name
+      ? `Message de ${vendorAdmin.vendor.name}`
+      : "Nouveau message"
+
     const notif = await notifService.createNotification({
       recipient_id: recipientId,
       recipient_type: "customer",
       type: "new_message",
-      title: "Nouveau message",
+      title: pushTitle,
       body: contentText.substring(0, 100),
       data: {
         conversation_id: id,
@@ -137,14 +151,16 @@ export const POST = async (req: AuthenticatedMedusaRequest, res: MedusaResponse)
     }
 
     // Push Notification (Expo)
-    const tokens = await notifService.getRecipientTokens(recipientId)
-    if (tokens.length > 0) {
-      await sendPushNotification(
-        tokens.map(t => t.token),
-        "Nouveau message",
-        contentText.substring(0, 100),
-        { conversation_id: id }
-      )
+    if (await notifService.isPushAllowed(recipientId, "messages")) {
+      const tokens = await notifService.getRecipientTokens(recipientId)
+      if (tokens.length > 0) {
+        await sendPushNotification(
+          tokens.map(t => t.token),
+          pushTitle,
+          contentText.substring(0, 100),
+          { conversation_id: id }
+        )
+      }
     }
   } catch (error) {
     console.error("Failed to process message notification in vendor route:", error)

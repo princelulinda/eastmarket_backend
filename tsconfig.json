@@ -21,8 +21,7 @@
     // "strictNullChecks": true,
     "noEmitOnError": false,
     "strict": false,
-    "noImplicitAny": false,
-    "suppressImplicitAnyIndexErrors": true
+    "noImplicitAny": false
   },
   "ts-node": {
     "swc": true

@@ -7,6 +7,7 @@ import {
   sendEmail,
   getOrderShippedEmailTemplate
 } from "../modules/notification-center/email-service"
+import { postOrderUpdateToChat } from "../modules/chat/order-chat"
 
 export default async function fulfillmentCreatedHandler({
   event: { data },
@@ -17,7 +18,7 @@ export default async function fulfillmentCreatedHandler({
 
   const { data: [order] } = await query.graph({
     entity: "order",
-    fields: ["id", "display_id", "customer_id", "email"],
+    fields: ["id", "display_id", "customer_id", "email", "vendor.id"],
     filters: { id: data.order_id }
   })
 
@@ -51,6 +52,19 @@ export default async function fulfillmentCreatedHandler({
     io.to(`user:${order.customer_id}`).emit("new_notification", {
       notification: notif,
       count,
+    })
+  }
+
+  // Message système dans la conversation client↔vendeur
+  const vendorId = (order as any).vendor?.id
+  if (vendorId && order.customer_id) {
+    await postOrderUpdateToChat(container, {
+      customerId: order.customer_id,
+      vendorId,
+      orderId: order.id,
+      displayId: order.display_id,
+      status: "shipped",
+      body: `📦 Commande #${order.display_id} expédiée — elle est en route !`,
     })
   }
 }

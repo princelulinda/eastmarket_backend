@@ -18,6 +18,14 @@ import { PostVendorVideoSchema } from "./vendors/videos/route"
 import { PutVendorVideoSchema } from "./vendors/videos/[id]/route"
 import { PostVendorStockLocationSchema } from "./vendors/stock-locations/route"
 import { PostVendorPromotionSchema } from "./vendors/promotions/route"
+import { PostVendorFlashSaleSchema } from "./vendors/flash-sales/route"
+import { PostActivitySchema } from "./store/activity/route"
+import { PostApplyReferralSchema } from "./store/customers/me/referral/apply/route"
+import { PostVerifyEmailSchema } from "./store/customers/me/verify-email/route"
+import { PostRegisterStartSchema } from "./store/auth/register/start/route"
+import { PostRegisterConfirmSchema } from "./store/auth/register/confirm/route"
+import { PostRegisterResendSchema } from "./store/auth/register/resend/route"
+import { requireVerifiedEmail } from "./middlewares/require-verified-email"
 import { PostVendorPayoutSchema } from "./vendors/payouts/route"
 import { PostVendorInventorySchema } from "./vendors/products/[id]/variants/[variant_id]/inventory/route"
 import { trackProductClick } from "./middlewares/analytics"
@@ -392,6 +400,12 @@ export default defineMiddlewares({
       method: ["GET", "POST"],
       middlewares: [linkGoogleAccountMiddleware],
     },
+    // ─── GOOGLE ONE TAP INTERCEPTOR (same linking logic, no redirect) ──
+    {
+      matcher: "/auth/*/google-onetap",
+      method: ["POST"],
+      middlewares: [linkGoogleAccountMiddleware],
+    },
 
     // ─── PAYMENT SESSION — provider_id normalisation ──────────────
     // Maps short IDs ("kashflow", "stripe") to full container keys
@@ -510,6 +524,11 @@ export default defineMiddlewares({
       middlewares: [],
     },
     {
+      matcher: "/vendors/flash-sales",
+      method: ["POST"],
+      middlewares: [validateAndTransformBody(PostVendorFlashSaleSchema)],
+    },
+    {
       matcher: "/vendors/analytics",
       method: ["GET"],
       middlewares: [authenticate("vendor", ["session", "bearer"])],
@@ -605,6 +624,121 @@ export default defineMiddlewares({
         authenticate("customer", ["session", "bearer"]),
       ],
     },
+    {
+      matcher: "/store/customers/me/loyalty",
+      middlewares: [
+        authenticate("customer", ["session", "bearer"]),
+      ],
+    },
+    {
+      matcher: "/store/customers/me/following",
+      middlewares: [
+        authenticate("customer", ["session", "bearer"]),
+      ],
+    },
+    {
+      matcher: "/store/customers/me/referral",
+      middlewares: [
+        authenticate("customer", ["session", "bearer"]),
+      ],
+    },
+    {
+      matcher: "/store/customers/me/referral/apply",
+      middlewares: [
+        authenticate("customer", ["session", "bearer"]),
+        validateAndTransformBody(PostApplyReferralSchema),
+      ],
+    },
+    {
+      matcher: "/store/customers/me/verify-email",
+      middlewares: [
+        authenticate("customer", ["session", "bearer"]),
+        validateAndTransformBody(PostVerifyEmailSchema),
+      ],
+    },
+    {
+      matcher: "/store/customers/me/resend-verification",
+      middlewares: [
+        authenticate("customer", ["session", "bearer"]),
+      ],
+    },
+    {
+      matcher: "/store/auth/register/start",
+      middlewares: [validateAndTransformBody(PostRegisterStartSchema)],
+    },
+    {
+      matcher: "/store/auth/register/confirm",
+      middlewares: [validateAndTransformBody(PostRegisterConfirmSchema)],
+    },
+    {
+      matcher: "/store/auth/register/resend",
+      middlewares: [validateAndTransformBody(PostRegisterResendSchema)],
+    },
+    {
+      method: ["POST"],
+      matcher: "/store/customers",
+      middlewares: [requireVerifiedEmail],
+    },
+    {
+      matcher: "/store/customers/me/recommendations",
+      middlewares: [
+        authenticate("customer", ["session", "bearer"]),
+      ],
+    },
+    {
+      matcher: "/store/customers/me/recently-viewed",
+      middlewares: [
+        authenticate("customer", ["session", "bearer"]),
+      ],
+    },
+    {
+      matcher: "/store/activity",
+      method: ["POST"],
+      middlewares: [
+        authenticate("customer", ["session", "bearer"]),
+        validateAndTransformBody(PostActivitySchema),
+      ],
+    },
+
+    // ─── STORE — VENDOR FOLLOW ──────────────────────────────────────
+    // Auth is required even for GET (Medusa's allowUnregistered only
+    // tolerates a signup-in-progress token, not a fully absent one — a
+    // truly public status check would need a second, unauthenticated
+    // route). Guests never call this; the frontend only fetches follow
+    // status when a customer is logged in.
+    {
+      matcher: "/store/vendors/:id/follow",
+      method: ["GET", "POST", "DELETE"],
+      middlewares: [
+        authenticate("customer", ["session", "bearer"]),
+      ],
+    },
+
+    // ─── STORE — LOYALTY (streaks / wheel / rewards) ───────────────
+    {
+      matcher: "/store/loyalty/status",
+      middlewares: [
+        authenticate("customer", ["session", "bearer"]),
+      ],
+    },
+    {
+      matcher: "/store/loyalty/checkin",
+      middlewares: [
+        authenticate("customer", ["session", "bearer"]),
+      ],
+    },
+    {
+      matcher: "/store/loyalty/wheel/prizes",
+      middlewares: [
+        authenticate("customer", ["session", "bearer"]),
+      ],
+    },
+    {
+      matcher: "/store/loyalty/wheel/spin",
+      middlewares: [
+        authenticate("customer", ["session", "bearer"]),
+      ],
+    },
 
     // ─── STORE — CART LINE ITEMS ──────────────────────────────────
     {
@@ -659,6 +793,14 @@ export default defineMiddlewares({
     },
     {
       matcher: "/store/chat/conversations/:id/upload",
+      method: ["POST"],
+      middlewares: [
+        authenticate("customer", ["session", "bearer"]),
+        upload.any(),
+      ],
+    },
+    {
+      matcher: "/store/reviews/upload",
       method: ["POST"],
       middlewares: [
         authenticate("customer", ["session", "bearer"]),

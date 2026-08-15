@@ -8,13 +8,14 @@ export async function POST(req: MedusaRequest, res: MedusaResponse) {
   const reviewService: ReviewModuleService = req.scope.resolve(REVIEW_MODULE)
   const notificationService: NotificationCenterService = req.scope.resolve(NOTIFICATION_MODULE)
   
-  const { product_id, customer_id, rating, content, vendor_id } = req.body
+  const { product_id, customer_id, rating, content, vendor_id, images } = req.body
 
   const [review] = await reviewService.createReviews([{
     product_id,
     customer_id,
     rating,
     content,
+    images: Array.isArray(images) && images.length > 0 ? images : null,
   }])
 
   if (vendor_id) {

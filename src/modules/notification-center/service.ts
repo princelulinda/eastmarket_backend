@@ -1,6 +1,25 @@
 import { MedusaService } from "@medusajs/framework/utils"
 import AppNotification from "./models/notification"
 import PushToken from "./models/push-token"
+import NotificationPreference from "./models/notification-preference"
+
+export type PushCategory = "messages" | "reminders" | "broadcasts" | "orders"
+
+export type NotificationPrefs = {
+  messages: boolean
+  reminders: boolean
+  broadcasts: boolean
+  orders: boolean
+  quiet_hours: { start: string; end: string } | null
+}
+
+const DEFAULT_PREFS: NotificationPrefs = {
+  messages: true,
+  reminders: true,
+  broadcasts: true,
+  orders: true,
+  quiet_hours: null,
+}
 
 type CreateNotificationInput = {
   recipient_id: string
@@ -11,7 +30,60 @@ type CreateNotificationInput = {
   data?: Record<string, any>
 }
 
-class NotificationCenterService extends MedusaService({ AppNotification, PushToken }) {
+class NotificationCenterService extends MedusaService({
+  AppNotification,
+  PushToken,
+  NotificationPreference,
+}) {
+
+  async getPreferences(recipientId: string): Promise<NotificationPrefs> {
+    const rows = await this.listNotificationPreferences({ recipient_id: recipientId })
+    if (rows.length === 0) return { ...DEFAULT_PREFS }
+    return { ...DEFAULT_PREFS, ...(rows[0].prefs as Partial<NotificationPrefs>) }
+  }
+
+  async setPreferences(
+    recipientId: string,
+    recipientType: "customer" | "vendor",
+    prefs: Partial<NotificationPrefs>
+  ): Promise<NotificationPrefs> {
+    const merged = { ...(await this.getPreferences(recipientId)), ...prefs }
+    const rows = await this.listNotificationPreferences({ recipient_id: recipientId })
+    if (rows.length > 0) {
+      await this.updateNotificationPreferences({ id: rows[0].id, prefs: merged } as any)
+    } else {
+      await this.createNotificationPreferences({
+        recipient_id: recipientId,
+        recipient_type: recipientType,
+        prefs: merged,
+      } as any)
+    }
+    return merged
+  }
+
+  /**
+   * Garde-fou : la catégorie est-elle activée, et sommes-nous hors heures calmes ?
+   * Les notifications in-app ne sont jamais bloquées — seul le push l'est.
+   */
+  async isPushAllowed(recipientId: string, category: PushCategory, now = new Date()): Promise<boolean> {
+    const prefs = await this.getPreferences(recipientId)
+    if (!prefs[category]) return false
+
+    if (prefs.quiet_hours?.start && prefs.quiet_hours?.end) {
+      const [sh, sm] = prefs.quiet_hours.start.split(":").map(Number)
+      const [eh, em] = prefs.quiet_hours.end.split(":").map(Number)
+      const minutes = now.getHours() * 60 + now.getMinutes()
+      const start = sh * 60 + (sm || 0)
+      const end = eh * 60 + (em || 0)
+      const inQuietHours =
+        start <= end
+          ? minutes >= start && minutes < end
+          : minutes >= start || minutes < end // fenêtre qui traverse minuit
+      if (inQuietHours) return false
+    }
+
+    return true
+  }
 
   async registerPushToken(input: {
     recipient_id: string

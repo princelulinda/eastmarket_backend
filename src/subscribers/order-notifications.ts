@@ -4,11 +4,15 @@ import { NOTIFICATION_MODULE } from "../modules/notification-center"
 import NotificationCenterService from "../modules/notification-center/service"
 import { getIO } from "../modules/socket/service"
 import { sendPushNotification } from "../modules/notification-center/push-service"
+import { LOYALTY_MODULE } from "../modules/loyalty"
+import LoyaltyModuleService from "../modules/loyalty/service"
 import {
   sendEmail,
   getOrderPlacedEmailTemplate,
   getVendorOrderEmailTemplate
 } from "../modules/notification-center/email-service"
+import { postOrderUpdateToChat } from "../modules/chat/order-chat"
+import { CHAT_MODULE } from "../modules/chat"
 
 // ── New Order ──────────────────────────────────────────────────────────────
 
@@ -35,12 +39,23 @@ export default async function orderPlacedHandler({
       "shipping_address.*",
       "vendor.id",
       "vendor.name",
-      "vendor.email"
+      "vendor.email",
+      "promotions.code"
     ],
     filters: { id: data.id }
   })
 
   if (!order) return
+
+  // Mark any loyalty-issued coupon used on this order as redeemed.
+  const loyaltyService: LoyaltyModuleService = container.resolve(LOYALTY_MODULE)
+  const orderPromoCodes = ((order as any).promotions || []).map((p: any) => p.code).filter(Boolean)
+  for (const code of orderPromoCodes) {
+    const coupon = await loyaltyService.findCouponByCode(code)
+    if (coupon && coupon.status === "issued") {
+      await loyaltyService.markCouponRedeemed(coupon.id, order.id)
+    }
+  }
 
   // Notify customer via app notification
   const customerNotif = await notifService.createNotification({
@@ -123,6 +138,62 @@ export default async function orderPlacedHandler({
 
   if (customerTokens.length > 0) {
     await sendPushNotification(customerTokens.map(t => t.token), "Commande confirmée", `Votre commande #${order.display_id} a été confirmée.`, { order_id: order.id })
+  }
+
+  // Message système dans la conversation client↔vendeur
+  if (vendorId && order.customer_id) {
+    await postOrderUpdateToChat(container, {
+      customerId: order.customer_id,
+      vendorId,
+      orderId: order.id,
+      displayId: order.display_id,
+      status: "placed",
+      body: `✅ Commande #${order.display_id} confirmée`,
+    })
+
+    // Commande conclue via chat : bonus si le client a échangé avec le
+    // vendeur dans les 24 h précédant la commande (une fois par commande).
+    try {
+      const chatService: any = container.resolve(CHAT_MODULE)
+      const conversations = await chatService.listConversations({
+        customer_id: order.customer_id,
+        vendor_id: vendorId,
+        type: "direct",
+      })
+
+      if (conversations.length > 0) {
+        const recentCustomerMsgs = await chatService.listMessages(
+          {
+            conversation_id: conversations[0].id,
+            sender_type: "customer",
+          },
+          { order: { created_at: "DESC" }, take: 1 }
+        )
+        const lastMsg = recentCustomerMsgs[0]
+        const chattedRecently =
+          lastMsg &&
+          Date.now() - new Date(lastMsg.created_at).getTime() < 24 * 60 * 60 * 1000
+
+        if (chattedRecently) {
+          const existing = await loyaltyService.listLoyaltyTransactions({
+            customer_id: order.customer_id,
+            type: "chat_engagement",
+            ref_id: order.id,
+          })
+          if (existing.length === 0) {
+            await loyaltyService.addPoints(
+              order.customer_id,
+              25,
+              "chat_engagement",
+              order.id,
+              "Commande conclue via le chat"
+            )
+          }
+        }
+      }
+    } catch (err) {
+      console.error("Failed to award chat-to-order loyalty points:", err)
+    }
   }
 }
 

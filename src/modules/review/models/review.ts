@@ -6,6 +6,7 @@ const Review = model.define("review", {
   customer_id: model.text(),
   rating: model.number(), // 1 to 5
   content: model.text().nullable(),
+  images: model.json().nullable(), // string[] of uploaded photo URLs
 })
 
 export default Review

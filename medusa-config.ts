@@ -2,7 +2,7 @@ import { loadEnv, defineConfig, Modules, ContainerRegistrationKeys } from '@medu
 
 loadEnv(process.env.NODE_ENV || "development", process.cwd())
 console.log("NODE_ENV =", process.env.NODE_ENV)
-console.log("STORE_CORS =", process.env.STORE_CORS)
+console.log("STORE_CORS =", process.env.STORE_CORS) // restart nudge: pick up follow + referral routes
 module.exports = defineConfig({
   projectConfig: {
     databaseUrl: process.env.DATABASE_URL,
@@ -31,6 +31,13 @@ module.exports = defineConfig({
               clientId: process.env.GOOGLE_CLIENT_ID,
               clientSecret: process.env.GOOGLE_CLIENT_SECRET,
               callbackUrl: process.env.GOOGLE_CALLBACK_URL,
+            },
+          },
+          {
+            resolve: "./src/modules/google-one-tap",
+            id: "google-onetap",
+            options: {
+              clientId: process.env.GOOGLE_CLIENT_ID,
             },
           },
         ],
@@ -83,10 +90,23 @@ module.exports = defineConfig({
       resolve: "./src/modules/chat",
     },
     {
+      resolve: "./src/modules/follow",
+    },
+    {
+      resolve: "./src/modules/activity",
+    },
+    {
       resolve: "./src/modules/notification-center",
     },
     {
       resolve: "./src/modules/payment-methods",
+    },
+    {
+      resolve: "./src/modules/loyalty",
+    },
+    {
+      // flash sales (time-boxed vendor promotions)
+      resolve: "./src/modules/flash-sale",
     },
     {
       resolve: "./src/modules/short-video",

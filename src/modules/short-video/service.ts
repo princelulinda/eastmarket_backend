@@ -58,6 +58,34 @@ class ShortVideoService extends MedusaService({ ShortVideo, VideoLike, VideoComm
     )
   }
 
+  /** A larger recent pool to rank/personalize in the route layer. */
+  async getCandidateFeed(poolSize: number) {
+    return await this.listShortVideos(
+      { status: "published" } as any,
+      { take: poolSize, order: { created_at: "DESC" } }
+    )
+  }
+
+  async getFeedForVendors(vendorIds: string[], poolSize: number) {
+    if (vendorIds.length === 0) return []
+    return await this.listShortVideos(
+      { status: "published", vendor_id: vendorIds } as any,
+      { take: poolSize, order: { created_at: "DESC" } }
+    )
+  }
+
+  async getCustomerLikedVideoIds(customerId: string, videoIds: string[]) {
+    if (videoIds.length === 0) return new Set<string>()
+    const likes = await this.listVideoLikes({ customer_id: customerId, video_id: videoIds } as any)
+    return new Set(likes.map((l: any) => l.video_id))
+  }
+
+  async getCustomerSavedVideoIds(customerId: string, videoIds: string[]) {
+    if (videoIds.length === 0) return new Set<string>()
+    const saves = await this.listVideoSaves({ customer_id: customerId, video_id: videoIds } as any)
+    return new Set(saves.map((s: any) => s.video_id))
+  }
+
   async getVendorVideos(vendorId: string) {
     return await this.listShortVideos(
       { vendor_id: vendorId } as any,

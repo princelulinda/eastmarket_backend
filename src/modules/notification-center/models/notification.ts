@@ -12,6 +12,13 @@ const AppNotification = model.define("app_notification", {
     "order_delivered",
     "order_cancelled",
     "new_review",
+    "reward_won",
+    "streak_milestone",
+    "new_video",
+    "referral_reward",
+    "offer_response",
+    "chat_reminder",
+    "cart_reminder",
     "system"
   ]),
   title: model.text(),

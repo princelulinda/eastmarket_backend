@@ -1,7 +1,7 @@
-import { 
-  MedusaRequest, 
-  MedusaResponse, 
-  MedusaNextFunction 
+import {
+  MedusaRequest,
+  MedusaResponse,
+  MedusaNextFunction
 } from "@medusajs/framework/http"
 import { ContainerRegistrationKeys, Modules } from "@medusajs/framework/utils"
 import AnalyticsService from "../../modules/analytics/service"
@@ -13,16 +13,23 @@ export async function trackProductClick(
 ) {
   const query = req.scope.resolve(ContainerRegistrationKeys.QUERY)
   const analyticsService = req.scope.resolve("analytics") as AnalyticsService
-  
-  // Only track product detail pages
-  if (req.path.startsWith("/store/products/") && req.method === "GET") {
-    const productId = req.params.id
-    
+
+  // Only track product detail pages (not sub-resources like /reviews).
+  // Neither req.params.id nor req.path are usable here: this middleware is
+  // mounted on the wildcard "/store/*" matcher, and Medusa/Express resets
+  // req.path to be relative to the mount point (it comes back as just "/"),
+  // so the product id has to be parsed out of req.originalUrl instead,
+  // which always retains the full request path.
+  const pathOnly = (req.originalUrl || "").split("?")[0]
+  const productDetailMatch = pathOnly.match(/^\/store\/products\/([^/]+)\/?$/)
+  if (productDetailMatch && req.method === "GET") {
+    const productId = productDetailMatch[1]
+
     // Attempt to get source and campaign from query params or referer
     const utmSource = req.query.utm_source as string
     const utmCampaign = req.query.utm_campaign as string
     const referer = req.headers.referer || ""
-    
+
     let source = utmSource
     if (!source && referer) {
       try {
@@ -49,6 +56,6 @@ export async function trackProductClick(
       })
     }
   }
-  
+
   next()
 }

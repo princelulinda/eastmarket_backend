@@ -2,6 +2,7 @@ import { AuthenticatedMedusaRequest, MedusaResponse } from "@medusajs/framework/
 import { MedusaError } from "@medusajs/framework/utils"
 import { CHAT_MODULE } from "../../../../../../../modules/chat"
 import ChatModuleService from "../../../../../../../modules/chat/service"
+import { getIO } from "../../../../../../../modules/socket/service"
 
 export const DELETE = async (req: AuthenticatedMedusaRequest, res: MedusaResponse) => {
   const chatService: ChatModuleService = req.scope.resolve(CHAT_MODULE)
@@ -26,8 +27,21 @@ export const DELETE = async (req: AuthenticatedMedusaRequest, res: MedusaRespons
     throw new MedusaError(MedusaError.Types.NOT_FOUND, "Message not found in this conversation")
   }
 
+  // Seul l'auteur peut supprimer son message
+  if (!(message.sender_type === "customer" && message.sender_id === req.auth_context.actor_id)) {
+    throw new MedusaError(MedusaError.Types.NOT_ALLOWED, "You can only delete your own messages")
+  }
+
   // 3. Suppression logique (soft delete)
   await chatService.softDeleteMessage(messageId)
+
+  const io = getIO()
+  if (io) {
+    io.to(`conversation:${conversationId}`).emit("message_deleted", {
+      conversation_id: conversationId,
+      message_id: messageId,
+    })
+  }
 
   res.status(200).json({ success: true, message_id: messageId })
 }
