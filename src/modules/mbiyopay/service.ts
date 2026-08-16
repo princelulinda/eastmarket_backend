@@ -285,6 +285,7 @@ class MbiyoPayService extends AbstractPaymentProvider {
     }
 
     const body = webhookData.data as any
+    console.log(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>",body)
     // MBIYOPAY uses a flat shape for merchant payin/payout events and a
     // wrapped { event, data } shape for platform features — normalise both,
     // and tolerate the transaction details being nested under `.data` the way
