@@ -61,11 +61,12 @@ class MbiyoPayService extends AbstractPaymentProvider {
 
   private callbackUrl() {
     // Medusa's own generic webhook route — NOT a custom one. It resolves the
-    // provider by the URL segment ("mbiyopay") and routes the payload straight
-    // into getWebhookActionAndData() below, with the raw body already preserved
-    // for signature verification.
+    // provider container key as `pp_${urlSegment}`; since this provider is
+    // registered as `pp_mbiyopay_mbiyopay` (identifier "mbiyopay" + config id
+    // "mbiyopay" in medusa-config.ts, same pattern as pp_stripe_stripe), the
+    // URL segment must be "mbiyopay_mbiyopay", not just "mbiyopay".
     const backendUrl = process.env.MEDUSA_BACKEND_URL || process.env.BACKEND_URL || ""
-    return `${backendUrl}/hooks/payment/mbiyopay`
+    return `${backendUrl}/hooks/payment/mbiyopay_mbiyopay`
   }
 
   public async mbiyopayRequest(endpoint: string, method: string, data?: any) {
