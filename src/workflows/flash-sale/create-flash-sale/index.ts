@@ -38,7 +38,9 @@ const createFlashSaleRecordStep = createStep(
       vendor_id: input.saleInput.vendor_id ?? null,
       title: input.saleInput.title,
       banner_color: input.saleInput.banner_color ?? null,
-      product_ids: input.saleInput.product_ids && input.saleInput.product_ids.length > 0 ? input.saleInput.product_ids : null,
+      // model.json() is typed as Record<string, unknown> by the DML, but this field
+      // actually stores a string[] of product ids — cast to match the JSON column's real shape.
+      product_ids: (input.saleInput.product_ids && input.saleInput.product_ids.length > 0 ? input.saleInput.product_ids : null) as unknown as Record<string, unknown> | null,
       promotion_id: input.promotionId,
       campaign_id: input.campaignId,
       discount_type: input.saleInput.discount_type,

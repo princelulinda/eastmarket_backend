@@ -1,6 +1,6 @@
 import { SubscriberArgs, type SubscriberConfig } from "@medusajs/framework"
 import { ContainerRegistrationKeys } from "@medusajs/framework/utils"
-import MarketplaceModuleService from "../../modules/marketplace/service"
+import MarketplaceModuleService from "../modules/marketplace/service"
 
 export default async function vendorPayoutOnDeliveryHandler({
   event: { data },

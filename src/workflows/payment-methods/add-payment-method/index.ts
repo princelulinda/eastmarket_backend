@@ -29,7 +29,7 @@ export const createPaymentMethodStep = createStep(
       if (existing.length > 0) {
         await service.updateCustomerPaymentMethods({
           selector: { customer_id: input.customer_id, is_default: true },
-          update: { is_default: false }
+          data: { is_default: false }
         })
       }
     }

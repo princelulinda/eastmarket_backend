@@ -73,7 +73,7 @@ const issueLoyaltyCouponWorkflow = createWorkflow(
             type: isFreeShipping ? "fixed" : (data.input.discount_type as "percentage" | "fixed"),
             value: isFreeShipping ? 0 : data.input.discount_value ?? 0,
             allocation: "across" as const,
-            target_type: isFreeShipping ? "shipping_methods" : "items",
+            target_type: (isFreeShipping ? "shipping_methods" : "items") as "shipping_methods" | "items",
           },
           usage_limit: 1,
         },
