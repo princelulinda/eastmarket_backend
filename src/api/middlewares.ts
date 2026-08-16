@@ -108,11 +108,14 @@ async function validateCartRegion(
       return
     }
 
-    // Check that all requested variants have a price in the cart's currency
-    const body = req.body as { items?: Array<{ variant_id?: string }> }
-    const variantIds = (body?.items ?? [])
-      .map((i) => i.variant_id)
-      .filter((id): id is string => !!id)
+    // Check that the requested variant has a price in the cart's currency.
+    // POST /store/carts/:id/line-items takes a single { variant_id, quantity }
+    // body (see @medusajs/medusa's StoreAddCartLineItem validator) — NOT a
+    // batch { items: [...] } array. Reading body.items here always produced
+    // an empty list, so this check silently never ran and let un-priced
+    // variants through to crash later in Medusa's own pricing workflow.
+    const body = req.body as { variant_id?: string }
+    const variantIds = body?.variant_id ? [body.variant_id] : []
 
     if (variantIds.length > 0 && cartCurrency) {
       const { data: variants } = await query.graph({
