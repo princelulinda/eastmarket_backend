@@ -268,7 +268,7 @@ async function linkGoogleAccountMiddleware(
   }
 
   // Override res.redirect
-  res.redirect = function (this: any, url: string) {
+  ;(res as any).redirect = function (this: any, url: string) {
     let urlObj: URL
     try {
       urlObj = new URL(url, "http://localhost")

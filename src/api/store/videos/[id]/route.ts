@@ -15,11 +15,12 @@ export const GET = async (
 
   const video = await service.retrieveShortVideo(req.params.id)
   
-  if (video.product_ids && video.product_ids.length > 0) {
+  const productIds = (video as any).product_ids
+  if (productIds && productIds.length > 0) {
     const { data: products } = await query.graph({
       entity: "product",
       fields: ["id", "title", "thumbnail", "variants.prices.*"],
-      filters: { id: video.product_ids }
+      filters: { id: productIds }
     })
     ;(video as any).products = products
   }

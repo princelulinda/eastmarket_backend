@@ -5,8 +5,7 @@ import { createStockLocationsWorkflow, createRemoteLinkStep } from "@medusajs/me
 import { 
   createWorkflow, 
   transform, 
-  WorkflowResponse,
-  useQueryGraphStep
+  WorkflowResponse
 } from "@medusajs/framework/workflows-sdk"
 import { MARKETPLACE_MODULE } from "../../../modules/marketplace"
 

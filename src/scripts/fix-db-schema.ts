@@ -3,7 +3,7 @@ import { MedusaContainer } from "@medusajs/framework/types";
 
 export default async function (container: MedusaContainer) {
   // Accéder directement au driver Knex/MikroORM pour exécuter le SQL
-  const db = container.resolve("db");
+  const db = container.resolve("db") as any;
   console.log("Fixing DB schema: altering customer_id and vendor_id to be nullable...");
   
   await db.execute(`

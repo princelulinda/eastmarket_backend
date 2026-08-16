@@ -46,17 +46,17 @@ export const POST = async (
     is_default: true
   })
   if (existing.length > 0) {
-    await service.updateCustomerPaymentMethods({
+    await (service as any).updateCustomerPaymentMethods({
       selector: { customer_id: customerId, is_default: true },
       update: { is_default: false }
-    })
+    } as any)
   }
 
   // Set this one as default
-  const updated = await service.updateCustomerPaymentMethods({
+  const updated = await (service as any).updateCustomerPaymentMethods({
     selector: { id },
     update: { is_default: true }
-  })
+  } as any)
 
   res.json({
     payment_method: updated[0]

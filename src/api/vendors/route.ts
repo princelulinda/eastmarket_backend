@@ -43,7 +43,7 @@ export const POST = async (
         name: vendorData.name,
         handle: vendorData.handle,
         logo: vendorData.logo,
-        admin: vendorData.admin,
+        admin: vendorData.admin as any,
         authIdentityId: req.auth_context?.auth_identity_id ?? "",
       }
     })

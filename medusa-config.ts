@@ -4,6 +4,9 @@ loadEnv(process.env.NODE_ENV || "development", process.cwd())
 console.log("NODE_ENV =", process.env.NODE_ENV)
 console.log("STORE_CORS =", process.env.STORE_CORS) // restart nudge: pick up follow + referral routes
 module.exports = defineConfig({
+  admin: {
+    disable: false,
+  },
   projectConfig: {
     databaseUrl: process.env.DATABASE_URL,
     http: {

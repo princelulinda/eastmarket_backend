@@ -26,7 +26,7 @@ export const GET = async (
     const { data: customers } = await query.graph({
       entity: "customer",
       fields: ["id", "first_name", "last_name", "email"], // Adjust fields based on what's available
-      filters: { id: customerIds }
+      filters: { id: customerIds as string[] }
     })
 
     const customerMap = new Map(customers.map((c: any) => [c.id, c]))
@@ -59,7 +59,7 @@ export const POST = async (
   }
 
   const vendorId = vendorAdmin.vendor.id
-  const { content, parent_id } = req.body
+  const { content, parent_id } = (req.body || {}) as any
   const service = req.scope.resolve(SHORT_VIDEO_MODULE) as ShortVideoService
 
   const comment = await service.addComment(req.params.id, null, content, parent_id, vendorId)

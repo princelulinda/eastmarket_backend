@@ -36,6 +36,7 @@ const createVendorPromotionWorkflow = createWorkflow(
           code: input.promotion.code,
           type: input.promotion.type,
           is_automatic: input.promotion.is_automatic,
+          status: "active",
           application_method: {
             ...input.promotion.application_method,
             target_rules: [
@@ -45,8 +46,8 @@ const createVendorPromotionWorkflow = createWorkflow(
                 values: [input.vendor_id]
               }
             ]
-          }
-        }]
+          } as any,
+        } as any]
       }
     })
 

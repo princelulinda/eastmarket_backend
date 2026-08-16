@@ -72,7 +72,7 @@ export const POST = async (req: AuthenticatedMedusaRequest<PostBody>, res: Medus
       order_id: orderId,
       fulfillment_id: fulfillmentId,
       items: mappedItems,
-      labels: req.validatedBody.labels ?? [],
+      labels: (req.validatedBody.labels ?? []) as any,
     }
   })
 

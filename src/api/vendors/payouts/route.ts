@@ -70,8 +70,9 @@ export const POST = async (req: AuthenticatedMedusaRequest<PostBody>, res: Medus
     payment_method,
     payment_details,
     status: "pending",
-    vendor: { id: vendor.id }
-  })
+    vendor_id: vendor.id,
+    vendor: vendor.id,
+  } as any)
 
   res.status(201).json({ payout })
 }

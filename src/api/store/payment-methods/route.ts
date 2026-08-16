@@ -43,7 +43,7 @@ export const POST = async (
       input: {
         customer_id: customerId,
         ...validated
-      }
+      } as any
     })
 
   res.json({

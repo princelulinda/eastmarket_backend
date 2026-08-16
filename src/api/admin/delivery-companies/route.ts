@@ -29,7 +29,7 @@ export const POST = async (
 
   const { result } = await createDeliveryCompanyWorkflow(req.scope)
     .run({
-      input: companyData
+      input: companyData as any
     })
     
   const companyId = (result.company as any).id;

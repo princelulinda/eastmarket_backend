@@ -7,7 +7,7 @@ export const POST = async (req: AuthenticatedMedusaRequest, res: MedusaResponse)
   
   // Essayer de passer l'objet directement au lieu d'un tableau enveloppé
   const variant = await productModule.createProductVariants({
-    ...req.body,
+    ...(req.body as any),
     product_id: id,
   })
   

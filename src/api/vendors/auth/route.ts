@@ -1,11 +1,11 @@
 import { MedusaRequest, MedusaResponse } from "@medusajs/framework/http"
-import { IMarketplaceModuleService } from "../../../modules/marketplace"
+import { MARKETPLACE_MODULE } from "../../../modules/marketplace"
 import { Modules } from "@medusajs/framework/utils"
 import bcrypt from "bcryptjs"
 
 export async function POST(req: MedusaRequest, res: MedusaResponse) {
-  const { email, password } = req.body
-  const marketplaceModule: IMarketplaceModuleService = req.scope.resolve(Modules.MARKETPLACE)
+  const { email, password } = (req.body || {}) as any
+  const marketplaceModule: any = req.scope.resolve(MARKETPLACE_MODULE)
 
   // 1. Trouver l'admin vendeur par email
   const admins = await marketplaceModule.listVendorAdmins({ email })

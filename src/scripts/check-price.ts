@@ -17,6 +17,6 @@ export default async function (container: MedusaContainer) {
   const prices = await pricingModule.calculatePrices({
     id: [variantId],
     context: { currency_code: "qar" },
-  });
+  } as any);
   console.log("Calculated prices:", JSON.stringify(prices, null, 2));
 }

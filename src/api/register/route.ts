@@ -1,12 +1,11 @@
 import { MedusaRequest, MedusaResponse } from "@medusajs/framework/http"
-import { IMarketplaceModuleService } from "../../modules/marketplace"
 import { MARKETPLACE_MODULE } from "../../modules/marketplace"
 import bcrypt from "bcryptjs"
 import { sendEmail, getWelcomeEmailTemplate } from "../../modules/notification-center/email-service"
 
 export async function POST(req: MedusaRequest, res: MedusaResponse) {
-  const { email, password, first_name, last_name, vendor_id } = req.body
-  const marketplaceModule: IMarketplaceModuleService = req.scope.resolve(MARKETPLACE_MODULE)
+  const { email, password, first_name, last_name, vendor_id } = (req.body || {}) as any
+  const marketplaceModule: any = req.scope.resolve(MARKETPLACE_MODULE)
 
   // 1. Vérifier si l'admin existe déjà
   const existing = await marketplaceModule.listVendorAdmins({ email })

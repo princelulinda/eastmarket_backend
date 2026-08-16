@@ -1,22 +1,17 @@
 import { 
   AbstractFulfillmentProviderService,
-  IFulfillmentProvider,
-  CreateFulfillmentDTO,
-  FulfillmentDTO,
-  CancelFulfillmentDTO,
-  CreateReturnFulfillmentDTO,
   ModuleProvider,
   Modules
 } from "@medusajs/framework/utils"
 
-export class DeliveryCompanyProvider extends AbstractFulfillmentProviderService implements IFulfillmentProvider {
+export class DeliveryCompanyProvider extends AbstractFulfillmentProviderService {
   static identifier = "delivery-company-provider"
 
   constructor(protected container: any, protected options: any) {
     super()
   }
 
-  async createFulfillment(data: CreateFulfillmentDTO): Promise<FulfillmentDTO> {
+  async createFulfillment(data: any): Promise<any> {
     return {
       id: "ful_" + Math.random().toString(36).substr(2, 9),
       provider_id: DeliveryCompanyProvider.identifier,
@@ -25,11 +20,11 @@ export class DeliveryCompanyProvider extends AbstractFulfillmentProviderService 
     }
   }
 
-  async cancelFulfillment(fulfillment: FulfillmentDTO): Promise<FulfillmentDTO> {
+  async cancelFulfillment(fulfillment: any): Promise<any> {
     return fulfillment
   }
 
-  async createReturnFulfillment(data: CreateReturnFulfillmentDTO): Promise<FulfillmentDTO> {
+  async createReturnFulfillment(data: any): Promise<any> {
     throw new Error("Method not implemented.")
   }
 

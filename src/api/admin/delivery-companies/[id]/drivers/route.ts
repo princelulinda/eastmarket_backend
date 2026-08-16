@@ -29,7 +29,7 @@ export const POST = async (
       input: {
         ...driverData,
         delivery_company_id: id,
-      }
+      } as any
     })
 
   res.status(201).json({
