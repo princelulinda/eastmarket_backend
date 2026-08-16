@@ -46,6 +46,7 @@ import { MARKETPLACE_MODULE } from "../modules/marketplace"
 const PROVIDER_ID_MAP: Record<string, string> = {
   "kashflow":       "pp_kashflow_kashflow",
   "stripe":         "pp_stripe_stripe",
+  "mbiyopay":       "pp_mbiyopay_mbiyopay",
   "system_default": "pp_system_default",
 }
 

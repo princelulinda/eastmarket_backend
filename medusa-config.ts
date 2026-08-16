@@ -144,6 +144,14 @@ module.exports = defineConfig({
               apiKey: process.env.STRIPE_API_KEY,
             },
           },
+          {
+            resolve: "./src/modules/mbiyopay",
+            id: "mbiyopay",
+            options: {
+              apiUrl: process.env.MBIYOPAY_API_URL || "https://dashboard.mbiyo.africa/api/v1/merchant",
+              apiKey: process.env.MBIYOPAY_API_KEY,
+            },
+          },
         ],
       },
     },

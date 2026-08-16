@@ -13,6 +13,7 @@ export default async function seed({ container }: ExecArgs) {
     "pp_system_default",
     "pp_stripe_stripe",
     "pp_kashflow_kashflow",
+    "pp_mbiyopay_mbiyopay",
   ]
 
   logger.info("Linking payment providers to East region...")
