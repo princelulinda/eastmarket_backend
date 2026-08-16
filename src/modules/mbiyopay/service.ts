@@ -263,7 +263,16 @@ class MbiyoPayService extends AbstractPaymentProvider {
     const headers = webhookData.headers as Record<string, string | string[] | undefined> | undefined
     const signature = headers?.["signature"]
 
-    if (!secret || !signature || !rawBody) {
+    if (!secret) {
+      console.log("[MbiyoPay Webhook] Rejected: MBIYOPAY_WEBHOOK_SECRET is not set")
+      return false
+    }
+    if (!rawBody) {
+      console.log("[MbiyoPay Webhook] Rejected: no raw body captured (bodyParser preserveRawBody issue?)")
+      return false
+    }
+    if (!signature) {
+      console.log("[MbiyoPay Webhook] Rejected: no 'signature' header on incoming request. Headers received:", Object.keys(headers || {}))
       return false
     }
 
@@ -271,22 +280,25 @@ class MbiyoPayService extends AbstractPaymentProvider {
     const expectedBuf = Buffer.from(expected, "utf8")
     const signatureBuf = Buffer.from(String(signature), "utf8")
 
-    if (expectedBuf.length !== signatureBuf.length) {
+    if (expectedBuf.length !== signatureBuf.length || !crypto.timingSafeEqual(expectedBuf, signatureBuf)) {
+      console.log("[MbiyoPay Webhook] Rejected: signature mismatch. expected=", expected, "received=", signature)
       return false
     }
 
-    return crypto.timingSafeEqual(expectedBuf, signatureBuf)
+    return true
   }
 
   async getWebhookActionAndData(
     webhookData: ProviderWebhookPayload["payload"]
   ): Promise<WebhookActionResult> {
+    console.log("[MbiyoPay Webhook] getWebhookActionAndData called")
+
     if (!this.isValidWebhookSignature(webhookData)) {
       return { action: PaymentActions.NOT_SUPPORTED }
     }
 
     const body = webhookData.data as any
-    console.log(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>",body)
+    console.log("[MbiyoPay Webhook] verified payload:", body)
     // MBIYOPAY uses a flat shape for merchant payin/payout events and a
     // wrapped { event, data } shape for platform features — normalise both,
     // and tolerate the transaction details being nested under `.data` the way
