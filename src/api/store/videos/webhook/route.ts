@@ -11,7 +11,7 @@ export const POST = async (
 ) => {
   const service = req.scope.resolve(SHORT_VIDEO_MODULE) as ShortVideoService
   
-  const payload = req.body
+  const payload = req.body as any
   
   const publicId = payload.public_id
   const videoId = publicId.split('/').pop()

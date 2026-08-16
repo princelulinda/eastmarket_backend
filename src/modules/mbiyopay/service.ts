@@ -185,7 +185,8 @@ class MbiyoPayService extends AbstractPaymentProvider {
   }
 
   async updatePayment(input: UpdatePaymentInput): Promise<UpdatePaymentOutput> {
-    const sessionId = (input.data?.session_id || input.context?.session_id) as string | undefined
+    const ctx = (input.context || {}) as any
+    const sessionId = (input.data?.session_id || ctx.session_id) as string | undefined
 
     const payload = {
       amount: input.amount,
@@ -194,9 +195,9 @@ class MbiyoPayService extends AbstractPaymentProvider {
       order_id: sessionId || "unknown",
       callback_url: this.callbackUrl(),
       metadata: {
-        phone_number: input.data?.phone_number || input.context?.phone_number,
-        network: input.data?.network || input.context?.network,
-        country_code: input.data?.country_code || input.context?.country_code,
+        phone_number: input.data?.phone_number || ctx.phone_number,
+        network: input.data?.network || ctx.network,
+        country_code: input.data?.country_code || ctx.country_code,
         session_id: sessionId,
       },
     }

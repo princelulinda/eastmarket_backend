@@ -15,7 +15,7 @@ export const GET = async (req: AuthenticatedMedusaRequest, res: MedusaResponse) 
 export const POST = async (req: AuthenticatedMedusaRequest, res: MedusaResponse) => {
   const productModule = req.scope.resolve(Modules.PRODUCT)
   
-  const category = await productModule.createProductCategories([req.body])
+  const category = await productModule.createProductCategories([req.body as any])
   
   res.json({ category: category[0] })
 }

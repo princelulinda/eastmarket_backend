@@ -28,7 +28,7 @@ export const POST = async (req: AuthenticatedMedusaRequest<PostBody>, res: Medus
   await service.track({
     customer_id: customerId,
     ...req.validatedBody,
-  })
+  } as any)
 
   // Fire-and-forget from the client's perspective — no payload needed back.
   res.status(204).send()

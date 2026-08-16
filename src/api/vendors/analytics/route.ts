@@ -1,6 +1,6 @@
 import { AuthenticatedMedusaRequest, MedusaResponse } from "@medusajs/framework/http"
 import { ContainerRegistrationKeys } from "@medusajs/framework/utils"
-import AnalyticsService from "../../../../modules/analytics/service"
+import AnalyticsService from "../../../modules/analytics/service"
 
 export const GET = async (req: AuthenticatedMedusaRequest, res: MedusaResponse) => {
   const analyticsService = req.scope.resolve("analytics") as AnalyticsService

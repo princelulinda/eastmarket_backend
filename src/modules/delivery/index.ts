@@ -8,10 +8,6 @@ export const DELIVERY_MODULE = "delivery"
 
 export default Module(DELIVERY_MODULE, {
   service: DeliveryModuleService,
-  models: [DeliveryCompany, DeliveryDriver],
-  definition: {
-    isQueryable: true,
-  },
 })
 
 export const linkable = {

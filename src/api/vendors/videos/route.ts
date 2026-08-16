@@ -41,7 +41,7 @@ export const POST = async (
   const video = await service.createVideo({
     vendor_id: vendorId,
     ...validated,
-  }, eventBus)
+  } as any, eventBus)
 
   res.json({
     video,
@@ -77,7 +77,7 @@ export const GET = async (
     const { data: products } = await query.graph({
       entity: "product",
       fields: ["id", "title", "thumbnail"],
-      filters: { id: productIds }
+      filters: { id: productIds as string[] }
     })
 
     const productMap = new Map(products.map((p: any) => [p.id, p]))

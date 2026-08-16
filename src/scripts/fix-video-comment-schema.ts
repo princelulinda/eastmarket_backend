@@ -1,7 +1,7 @@
 import { MedusaContainer } from "@medusajs/framework/types";
 
 export default async function ({ container }: { container: MedusaContainer }) {
-  const db = container.resolve("db");
+  const db = container.resolve("db") as any;
   console.log("Checking video_comment table for missing vendor_id column...");
   
   try {

@@ -107,6 +107,7 @@ class KashFlowPaymentService extends AbstractPaymentProvider {
     }
   }
 async initiatePayment(input: InitiatePaymentInput): Promise<InitiatePaymentOutput> {
+  const ctx = (input.context || {}) as any
   const payload = {
     amount: 10,
     currency: "usd",
@@ -114,8 +115,8 @@ async initiatePayment(input: InitiatePaymentInput): Promise<InitiatePaymentOutpu
     initiator: input.data?.initiator,
     vendor_email: input.data?.vendor_email,
     otp: input.data?.otp,
-    reference: input.context?.customer?.id || "unknown",
-    app_reference: input.context?.order_id || input.context?.cart_id || "unknown",
+    reference: ctx.customer?.id || "unknown",
+    app_reference: ctx.order_id || ctx.cart_id || "unknown",
   }
   console.log(payload)
 
@@ -186,15 +187,16 @@ async initiatePayment(input: InitiatePaymentInput): Promise<InitiatePaymentOutpu
   }
   
   async updatePayment(input: UpdatePaymentInput): Promise<UpdatePaymentOutput> {
+    const ctx = (input.context || {}) as any
     const payload = {
       amount: input.amount,
       currency: input.currency_code,
-      payment_method: input.data?.payment_method || input.context?.payment_method,
-      initiator: input.data?.initiator || input.context?.initiator,
-      vendor_email: input.data?.vendor_email || input.context?.vendor_email,
-      otp: input.data?.otp || input.context?.otp,
-      reference: input.context?.customer?.id || "unknown",
-      app_reference: input.context?.order_id || input.context?.cart_id || "unknown",
+      payment_method: input.data?.payment_method || ctx.payment_method,
+      initiator: input.data?.initiator || ctx.initiator,
+      vendor_email: input.data?.vendor_email || ctx.vendor_email,
+      otp: input.data?.otp || ctx.otp,
+      reference: ctx.customer?.id || "unknown",
+      app_reference: ctx.order_id || ctx.cart_id || "unknown",
     }
 
     const kashflowResponse = await this.kashflowRequest("/payments/initialize", "POST", payload)

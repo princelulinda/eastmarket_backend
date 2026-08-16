@@ -34,7 +34,7 @@ export const POST = async (req: AuthenticatedMedusaRequest<PostBody>, res: Medus
     input: {
       order_id: orderId,
       location_id: req.validatedBody.location_id,
-      items: req.validatedBody.items,
+      items: req.validatedBody.items as any,
     }
   })
 

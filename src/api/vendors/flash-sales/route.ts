@@ -44,7 +44,7 @@ export const POST = async (req: AuthenticatedMedusaRequest<PostBody>, res: Medus
   })
 
   const { result: flashSale } = await createFlashSaleWorkflow(req.scope).run({
-    input: { vendor_id: vendorAdmin.vendor.id, ...req.validatedBody },
+    input: { vendor_id: vendorAdmin.vendor.id, ...req.validatedBody } as any,
   })
 
   // Annonce automatique dans le canal de diffusion du vendeur

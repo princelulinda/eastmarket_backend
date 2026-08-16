@@ -36,7 +36,7 @@ export const POST = async (req: AuthenticatedMedusaRequest<PostBody>, res: Medus
     body: { email, password },
     authScope: "vendor",
     protocol: req.protocol,
-  })
+  } as any)
 
   if (!regSuccess || !newIdentity) {
     throw new MedusaError(MedusaError.Types.INVALID_DATA, regError || "Failed to register vendor admin")

@@ -34,7 +34,8 @@ export const GET = async (
   // Injection de calculated_price pour compatibilité frontend via les données déjà chargées
   for (const product of products) {
     for (const variant of product.variants) {
-      const price = variant.prices?.[0]
+      const v = variant as any
+      const price = v.prices?.[0]
       if (price) {
         (variant as any).calculated_price = {
           calculated_amount: price.amount,
