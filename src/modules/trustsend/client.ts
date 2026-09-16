@@ -49,3 +49,47 @@ export async function trustSendRequest(
 
   return body
 }
+
+/** The three states a TrustSend deposit can be in (docs: Dépôts & retraits). */
+export type TrustSendDepositStatus = "processing" | "completed" | "failed"
+
+export function normalizeDepositStatus(status: unknown): TrustSendDepositStatus {
+  const s = String(status || "").toLowerCase()
+  if (s === "completed") return "completed"
+  if (s === "failed") return "failed"
+  return "processing"
+}
+
+/**
+ * Reads the deposit TrustSend recorded, and — while it is still `processing` — asks the payment
+ * network directly, which also settles the transaction on TrustSend's side when a final status
+ * comes back. That call is idempotent, it never credits twice.
+ *
+ * Shared by the payment provider, which authorises a session from it, and by the store status
+ * route the storefront polls, so the two can never disagree on what a deposit is doing.
+ */
+export async function fetchDepositStatus(
+  credentials: TrustSendCredentials,
+  depositId: string
+): Promise<TrustSendDepositStatus> {
+  const stored = await trustSendRequest(
+    credentials,
+    `/business/mobile-money/deposits/${depositId}`,
+    "GET"
+  )
+  let status = normalizeDepositStatus(stored?.data?.status)
+
+  if (status === "processing") {
+    const live = await trustSendRequest(
+      credentials,
+      `/business/mobile-money/deposits/${depositId}/live-status`,
+      "GET"
+    ).catch(() => null)
+
+    if (live?.data) {
+      status = normalizeDepositStatus(live.data.local_status ?? live.data.live_status)
+    }
+  }
+
+  return status
+}

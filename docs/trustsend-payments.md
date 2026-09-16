@@ -138,14 +138,31 @@ Pour une boutique qui suit vraiment la convention Medusa (`10.5` = 10,50 $), lai
 {
   "status": "pending",
   "deposit_id": "TXN-VSWC4SQ2",
+  "deposit_status": "processing",
   "authorization": null
 }
 ```
 
-- `status` est celui de la session : `pending` tant que le payeur n'a pas confirmé, `authorized`
-  ensuite. La commande ne peut être complétée qu'à partir de là.
+- `status` : `pending` tant que le payeur n'a pas confirmé, `authorized` ensuite — la commande
+  ne peut être complétée qu'à partir de là —, `error` si le dépôt a échoué.
+- `deposit_status` : l'état brut lu chez TrustSend sur cet appel (`processing`, `completed`,
+  `failed`), ou `null` si la session n'avait pas à être interrogée.
 - `authorization` contient, quand l'opérateur l'exige, les instructions à afficher au payeur
   (étapes USSD, lien rapide). Il vaut `null` s'il n'y a rien à faire d'autre que confirmer.
+
+**La route ne se contente pas de lire la base.** Tant que la session est `pending`, elle demande
+à TrustSend où en est le dépôt, et autorise la session elle-même dès qu'il est `completed`. Sans
+ça, trois situations resteraient bloquées sur `pending` jusqu'à l'abandon du client : une
+livraison webhook perdue, un abonnement webhook non configuré, et un dépôt refusé — que le
+webhook ne marque volontairement pas.
+
+C'est aussi ce qui permet de rattraper une confirmation tardive : le payeur qui valide après que
+le storefront a cessé d'attendre obtient sa commande à la vérification suivante, au lieu de
+relancer un second dépôt et de payer deux fois.
+
+Le coût est un appel à TrustSend par interrogation tant que le paiement est en attente (deux
+quand le dépôt est encore `processing`, à cause de la lecture `live-status`) : à régler par
+l'intervalle de poll du storefront.
 
 ### 2.4 Compléter la commande
 
@@ -158,7 +175,7 @@ Une fois la session `authorized`, compléter le panier comme pour n'importe quel
 | Fichier | Rôle |
 |---|---|
 | `src/modules/trustsend/service.ts` | Fournisseur de paiement : initie le dépôt, lit son statut |
-| `src/modules/trustsend/client.ts` | Appels HTTP à l'API TrustSend, partagés avec les routes store |
+| `src/modules/trustsend/client.ts` | Appels HTTP à l'API TrustSend et lecture de l'état d'un dépôt, partagés avec les routes store |
 | `src/api/hooks/trustsend/route.ts` | Réception des webhooks, signature vérifiée, session autorisée |
 | `src/api/store/trustsend/payment-methods/route.ts` | Liste des opérateurs |
 | `src/api/store/trustsend/status/[id]/route.ts` | Suivi de la session pendant l'attente |
@@ -170,9 +187,16 @@ Une fois la session `authorized`, compléter le panier comme pour n'importe quel
    grâce à `bodyParser: { preserveRawBody: true }` déclaré dans `src/api/middlewares.ts`.
    La livraison ne transporte que la référence TrustSend, donc la session est retrouvée par le
    `deposit_id` stocké dessus à l'initiation.
-2. **Relecture** — quand Medusa autorise la session, le fournisseur relit le dépôt, et interroge
-   le réseau de paiement en direct tant qu'il est `processing`. Ce second chemin sert de filet si
-   un webhook n'arrive pas ; l'appel est idempotent, il ne crédite jamais deux fois.
+2. **Relecture** — `fetchDepositStatus()` (dans `client.ts`) relit le dépôt et interroge le
+   réseau de paiement en direct tant qu'il est `processing`. Le fournisseur s'en sert quand
+   Medusa autorise la session ; la route de statut s'en sert à chaque interrogation du
+   storefront, et autorise la session elle-même sur un `completed`. Ce second chemin ne se
+   contente pas de servir de filet : il suffit à faire aboutir un paiement sans aucun webhook.
+   L'appel est idempotent, il ne crédite jamais deux fois.
+
+   Un dépôt `failed` n'est écrit nulle part, ni par le webhook ni par la route : le marquer
+   passerait par `updatePaymentSession`, donc par `updatePayment()`, qui relancerait un dépôt
+   neuf. L'échec est rapporté au storefront, la session reste `pending`.
 
 ### 3.2 Correspondance des statuts
 

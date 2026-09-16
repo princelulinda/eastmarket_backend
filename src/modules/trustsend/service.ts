@@ -35,6 +35,8 @@ import type {
 import crypto from "crypto"
 import {
   TRUSTSEND_SANDBOX_URL,
+  fetchDepositStatus,
+  normalizeDepositStatus,
   trustSendRequest,
   type TrustSendCredentials,
 } from "./client"
@@ -53,16 +55,6 @@ export interface TrustSendOptions extends Record<string, unknown>, TrustSendCred
    * plutôt qu'une détection automatique.
    */
   amountUnit?: "major" | "minor"
-}
-
-/** The three states a TrustSend deposit can be in (docs: Dépôts & retraits). */
-export type TrustSendStatus = "processing" | "completed" | "failed"
-
-function normalizeStatus(status: unknown): TrustSendStatus {
-  const s = String(status || "").toLowerCase()
-  if (s === "completed") return "completed"
-  if (s === "failed") return "failed"
-  return "processing"
 }
 
 /**
@@ -182,7 +174,7 @@ class TrustSendService extends AbstractPaymentProvider<TrustSendOptions> {
       data: {
         deposit_id: String(deposit.deposit_id),
         session_id: sessionId,
-        status: normalizeStatus(deposit.status),
+        status: normalizeDepositStatus(deposit.status),
         // What the payer must do to confirm (USSD steps, quick link) — null when nothing is needed.
         authorization: deposit.authorization ?? null,
         created_at: deposit.created_at,
@@ -198,11 +190,7 @@ class TrustSendService extends AbstractPaymentProvider<TrustSendOptions> {
     return { data: input.data, status }
   }
 
-  /**
-   * Reads the deposit TrustSend recorded, and — while it is still `processing` — asks the
-   * payment network directly, which also settles the transaction on TrustSend's side when a
-   * final status comes back. That call is idempotent, it never credits twice.
-   */
+  /** Asks TrustSend where the deposit stands — see `fetchDepositStatus` for how it is read. */
   async getPaymentStatus(input: GetPaymentStatusInput): Promise<GetPaymentStatusOutput> {
     const depositId = (input.data as any)?.deposit_id
 
@@ -211,22 +199,7 @@ class TrustSendService extends AbstractPaymentProvider<TrustSendOptions> {
     }
 
     try {
-      const stored = await this.trustSendRequest(
-        `/business/mobile-money/deposits/${depositId}`,
-        "GET"
-      )
-      let status = normalizeStatus(stored?.data?.status)
-
-      if (status === "processing") {
-        const live = await this.trustSendRequest(
-          `/business/mobile-money/deposits/${depositId}/live-status`,
-          "GET"
-        ).catch(() => null)
-
-        if (live?.data) {
-          status = normalizeStatus(live.data.local_status ?? live.data.live_status)
-        }
-      }
+      const status = await fetchDepositStatus(this.options_, String(depositId))
 
       if (status === "completed") {
         return { status: PaymentSessionStatus.AUTHORIZED, data: input.data }
@@ -282,7 +255,7 @@ class TrustSendService extends AbstractPaymentProvider<TrustSendOptions> {
       data: {
         deposit_id: deposit.deposit_id ? String(deposit.deposit_id) : undefined,
         session_id: sessionId,
-        status: normalizeStatus(deposit.status),
+        status: normalizeDepositStatus(deposit.status),
         authorization: deposit.authorization ?? null,
         created_at: deposit.created_at,
         phone_number: payload.phone_number,
