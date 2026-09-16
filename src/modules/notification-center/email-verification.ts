@@ -2,7 +2,7 @@ import crypto from "crypto"
 
 const CODE_LENGTH = 6
 const EXPIRY_MINUTES = 15
-const RESEND_COOLDOWN_SECONDS = 60
+const RESEND_COOLDOWN_SECONDS = 30
 
 export function generateVerificationCode(): string {
   return crypto.randomInt(0, 1_000_000).toString().padStart(CODE_LENGTH, "0")
@@ -60,3 +60,23 @@ export function checkVerificationCode(
   }
   return { valid: true }
 }
+
+// ── Flux d'inscription vendeur (pré-inscription, stocké en cache) ───────
+
+/** Entrée OTP conservée en cache pendant l'inscription (jamais le code en clair). */
+export type OtpCacheEntry = {
+  hash: string
+  expires_at: string
+  last_sent_at: string
+}
+
+/** Code en attente de confirmation pour un email vendeur. */
+export const vendorOtpCacheKey = (email: string) =>
+  `vendor_register_otp:${email.toLowerCase()}`
+
+/** Ticket "email vendeur vérifié", consommé par POST /vendors. */
+export const vendorVerifiedCacheKey = (email: string) =>
+  `vendor_register_verified:${email.toLowerCase()}`
+
+/** TTL du ticket "email vérifié" — le temps de finir la création de la boutique. */
+export const VERIFIED_TICKET_TTL_SECONDS = 30 * 60

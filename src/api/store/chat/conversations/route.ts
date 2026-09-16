@@ -41,17 +41,54 @@ export const GET = async (req: AuthenticatedMedusaRequest, res: MedusaResponse) 
   const vendorIds = [...new Set(allConversations.map(c => c.vendor_id).filter(Boolean))]
 
   // Récupérer les détails des vendeurs
+  // is_verified alimente le badge « Vérifié » de la liste côté app : sans lui
+  // l'app devait recharger tout l'annuaire des vendeurs juste pour l'afficher.
   const { data: vendors } = await query.graph({
     entity: "vendor",
-    fields: ["id", "name", "logo"],
+    fields: ["id", "name", "logo", "is_verified"],
     filters: { id: vendorIds }
   })
 
-  // Fusionner les données
-  const enrichedConversations = allConversations.map(conv => ({
-    ...conv,
-    vendor: vendors.find(v => v.id === conv.vendor_id)
-  }))
+  // Non lus pour le client = messages du vendeur pas encore lus. Une seule
+  // requête pour toute la liste, au lieu d'une par conversation.
+  const unreadCounts = await chatService.countUnreadByConversation(
+    allConversations.map((c) => c.id),
+    "vendor"
+  )
+
+  // Fusionner les données et joindre le dernier message + le nombre de non-lus.
+  // Sans ça, la liste renvoie les lignes brutes de `conversation`, qui ne
+  // portent ni aperçu ni compteur : l'app afficherait « Démarrer une
+  // conversation » même après un message du vendeur, et le badge disparaîtrait
+  // à chaque rechargement de l'écran. Symétrique de /vendors/chat/conversations.
+  const enrichedConversations = await Promise.all(
+    allConversations.map(async (conv) => {
+      const messages = await chatService.getMessages(conv.id, 1)
+      const lastMessage = messages.length > 0 ? messages[0] : null
+
+      return {
+        ...conv,
+        vendor: vendors.find(v => v.id === conv.vendor_id),
+        last_message: lastMessage ? {
+          id: lastMessage.id,
+          content: lastMessage.content,
+          sender_type: lastMessage.sender_type,
+          sender_id: lastMessage.sender_id,
+          type: lastMessage.type,
+          file_url: lastMessage.file_url,
+          created_at: lastMessage.created_at,
+        } : null,
+        unread_count: unreadCounts[conv.id] ?? 0,
+      }
+    })
+  )
+
+  // Les plus récentes d'abord, comme la liste se réordonne côté app
+  enrichedConversations.sort((a, b) => {
+    const ta = new Date(a.last_message?.created_at ?? a.last_message_at ?? 0).getTime()
+    const tb = new Date(b.last_message?.created_at ?? b.last_message_at ?? 0).getTime()
+    return tb - ta
+  })
 
   res.json({ conversations: enrichedConversations })
 }

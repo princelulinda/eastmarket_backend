@@ -36,7 +36,19 @@ export const GET = async (req: AuthenticatedMedusaRequest, res: MedusaResponse) 
   const limit = Number(req.query.limit) || 50
   const offset = Number(req.query.offset) || 0
 
-  const messages = await chatService.getMessages(req.params.id, limit, offset)
+  // `after` : l'app ne redemande que ce qui a changé depuis sa dernière sync.
+  // Accepte un ISO 8601 ou un timestamp ms ; une valeur invalide est ignorée
+  // plutôt que de faire échouer la requête (le client retombe sur un full sync).
+  let after: Date | undefined
+  if (req.query.after) {
+    const raw = String(req.query.after)
+    const parsed = new Date(/^\d+$/.test(raw) ? Number(raw) : raw)
+    if (!Number.isNaN(parsed.getTime())) {
+      after = parsed
+    }
+  }
+
+  const messages = await chatService.getMessages(req.params.id, limit, offset, after)
 
   res.json({ messages, count: messages.length, limit, offset })
 }
@@ -63,6 +75,7 @@ export const POST = async (req: AuthenticatedMedusaRequest, res: MedusaResponse)
   }
 
   const body = req.body as {
+    id?: string
     content?: string
     type?: string
     file_url?: string
@@ -70,7 +83,26 @@ export const POST = async (req: AuthenticatedMedusaRequest, res: MedusaResponse)
     metadata?: Record<string, unknown>
   }
 
+  // Id fourni par le client : rend l'envoi idempotent. Un rejeu après coupure
+  // réseau (la file hors-ligne retente indéfiniment) renvoie le message déjà
+  // enregistré au lieu d'en créer un second.
+  let clientId: string | undefined
+  if (body.id) {
+    if (!/^[0-9A-HJKMNP-TV-Z]{26}$/.test(body.id)) {
+      throw new MedusaError(MedusaError.Types.INVALID_DATA, "id must be a ULID")
+    }
+    const [existing] = await chatService.listMessages({ id: body.id } as any)
+    if (existing) {
+      if (existing.conversation_id !== id) {
+        throw new MedusaError(MedusaError.Types.INVALID_DATA, "id already used")
+      }
+      return res.status(200).json({ message: existing })
+    }
+    clientId = body.id
+  }
+
   const message = await chatService.sendMessage({
+    id: clientId,
     conversation_id: id,
     sender_type: "customer",
     sender_id: req.auth_context.actor_id,

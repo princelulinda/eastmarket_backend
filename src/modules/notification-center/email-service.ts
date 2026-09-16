@@ -221,6 +221,94 @@ export function getVerifyEmailTemplate(name: string, code: string) {
   })
 }
 
+// ── Vérification de boutique (KYC vendeur) ──────────────────────────────
+
+export function getVerificationSubmittedTemplate(vendorName: string) {
+  const body = `
+    <h2>Nous avons bien reçu votre dossier</h2>
+    <p>Bonjour,</p>
+    <p>Le dossier de vérification de <strong>${vendorName}</strong> est entre nos mains. Notre équipe l'examine et vous répond sous 48&nbsp;heures ouvrées.</p>
+
+    <div class="card">
+      <h3 style="margin-top:0;">En attendant, vous pouvez déjà tout préparer</h3>
+      <p class="muted" style="margin-bottom:8px;">📦 Créez vos produits, ajoutez vos photos et fixez vos prix</p>
+      <p class="muted" style="margin-bottom:8px;">🗓️ Renseignez vos horaires et vos informations de boutique</p>
+      <p class="muted" style="margin-bottom:0;">🚀 Tout sera mis en ligne automatiquement dès l'approbation</p>
+    </div>
+
+    <p style="margin-top: 24px;" class="muted">Vos documents sont stockés de façon chiffrée et ne sont consultables que par l'équipe de vérification.</p>
+    <div style="text-align: center; margin-top: 28px;">
+      <a href="${SITE_URL}" class="button">Préparer ma boutique</a>
+    </div>
+  `
+
+  return emailShell({
+    title: "Dossier de vérification reçu - East Market",
+    preheader: `Le dossier de ${vendorName} est en cours d'examen.`,
+    headerTag: "Vérification en cours",
+    bodyHtml: body,
+  })
+}
+
+export function getVerificationApprovedTemplate(vendorName: string, publishedCount: number) {
+  const body = `
+    <h2>${vendorName} est vérifiée ✅</h2>
+    <p>Félicitations ! Votre dossier a été approuvé. Le badge <strong>Vendeur vérifié</strong> est désormais affiché sur votre boutique et sur chacun de vos produits.</p>
+
+    ${publishedCount > 0 ? `
+      <div class="card">
+        <h3 style="margin-top:0;">Votre catalogue est en ligne</h3>
+        <p class="muted" style="margin-bottom:0;">
+          ${publishedCount} produit${publishedCount > 1 ? "s" : ""} en attente ${publishedCount > 1 ? "ont" : "a"} été publié${publishedCount > 1 ? "s" : ""} automatiquement et ${publishedCount > 1 ? "sont" : "est"} visible${publishedCount > 1 ? "s" : ""} par les acheteurs dès maintenant.
+        </p>
+      </div>
+    ` : `
+      <div class="card">
+        <h3 style="margin-top:0;">Prochaine étape</h3>
+        <p class="muted" style="margin-bottom:0;">Ajoutez vos premiers produits : ils seront publiés directement, sans attente.</p>
+      </div>
+    `}
+
+    <p style="margin-top: 24px;" class="muted">Le badge rassure les acheteurs et améliore nettement votre taux de conversion. Gardez vos informations de boutique à jour pour le conserver.</p>
+    <div style="text-align: center; margin-top: 28px;">
+      <a href="${SITE_URL}" class="button">Voir ma boutique</a>
+    </div>
+  `
+
+  return emailShell({
+    title: "Votre boutique est vérifiée - East Market",
+    preheader: `${vendorName} est désormais une boutique vérifiée.`,
+    headerTag: "Boutique vérifiée",
+    bodyHtml: body,
+  })
+}
+
+export function getVerificationRejectedTemplate(vendorName: string, reason: string) {
+  const body = `
+    <h2>Votre dossier nécessite une correction</h2>
+    <p>Bonjour,</p>
+    <p>Nous n'avons pas pu valider le dossier de vérification de <strong>${vendorName}</strong> en l'état.</p>
+
+    <div class="card" style="border-left: 4px solid ${BRAND};">
+      <h3 style="margin-top:0;">Motif</h3>
+      <p style="margin-bottom:0;">${reason}</p>
+    </div>
+
+    <p style="margin-top: 24px;">Corrigez le point ci-dessus et soumettez à nouveau votre dossier — il n'y a aucune limite au nombre de tentatives, et vos produits déjà créés sont conservés.</p>
+    <p class="muted">Un doute sur ce qui est attendu ? Répondez à notre équipe support, elle vous guidera.</p>
+    <div style="text-align: center; margin-top: 28px;">
+      <a href="${SITE_URL}" class="button">Reprendre mon dossier</a>
+    </div>
+  `
+
+  return emailShell({
+    title: "Dossier de vérification à corriger - East Market",
+    preheader: `Le dossier de ${vendorName} nécessite une correction.`,
+    headerTag: "Action requise",
+    bodyHtml: body,
+  })
+}
+
 // ── Commande passée (client) ─────────────────────────────────────────────
 
 export function getOrderPlacedEmailTemplate(order: any) {

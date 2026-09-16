@@ -48,7 +48,10 @@ export const PUT = async (req: AuthenticatedMedusaRequest<HttpTypes.AdminUpdateP
     }
   })
 
-  res.json({ product })
+  res.json({
+    product,
+    pending_verification: (req as any).pending_vendor_verification === true,
+  })
 }
 
 export const DELETE = async (req: AuthenticatedMedusaRequest, res: MedusaResponse) => {

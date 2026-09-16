@@ -1,6 +1,7 @@
 import { SubscriberArgs, type SubscriberConfig } from "@medusajs/framework"
 import { ContainerRegistrationKeys } from "@medusajs/framework/utils"
 import MarketplaceModuleService from "../modules/marketplace/service"
+import { vendorShare } from "../modules/marketplace/commission"
 
 export default async function vendorPayoutOnDeliveryHandler({
   event: { data },
@@ -36,12 +37,10 @@ export default async function vendorPayoutOnDeliveryHandler({
       }
       
       if (vendorId) {
-        // Logique de commission : la marketplace garde 10%
-        const commissionRate = 0.10; 
-        
-        // Calcul du montant qui revient au vendeur (Prix unitaire * quantité - commission)
+        // Taux partagé avec le remboursement, pour que les deux sens du flux
+        // financier utilisent exactement la même règle.
         const itemTotal = Number(item.unit_price) * Number(item.quantity);
-        const amountForVendor = Math.round(itemTotal * (1 - commissionRate));
+        const amountForVendor = vendorShare(itemTotal);
         
         // 3. Libérer l'argent au vendeur
         await marketplaceModule.addVendorBalance(vendorId, amountForVendor)

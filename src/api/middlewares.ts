@@ -10,6 +10,7 @@ import { AdminCreateProduct, AdminUpdateProduct } from "@medusajs/medusa/api/adm
 import { PostVendorCreateSchema } from "./vendors/route"
 import { PostConversationSchema } from "./store/chat/conversations/route"
 import { PutVendorMeSchema } from "./vendors/me/route"
+import { PostVendorPasswordSchema } from "./vendors/me/password/route"
 import { PostVendorAdminSchema } from "./vendors/admins/route"
 import { PutVendorAdminSchema } from "./vendors/admins/[id]/route"
 import { PostFulfillOrderSchema } from "./vendors/orders/[id]/fulfill/route"
@@ -18,6 +19,7 @@ import { PostVendorVideoSchema } from "./vendors/videos/route"
 import { PutVendorVideoSchema } from "./vendors/videos/[id]/route"
 import { PostVendorStockLocationSchema } from "./vendors/stock-locations/route"
 import { PostVendorPromotionSchema } from "./vendors/promotions/route"
+import { PostVendorPromotionUpdateSchema } from "./vendors/promotions/[id]/route"
 import { PostVendorFlashSaleSchema } from "./vendors/flash-sales/route"
 import { PostActivitySchema } from "./store/activity/route"
 import { PostApplyReferralSchema } from "./store/customers/me/referral/apply/route"
@@ -26,13 +28,28 @@ import { PostRegisterStartSchema } from "./store/auth/register/start/route"
 import { PostRegisterConfirmSchema } from "./store/auth/register/confirm/route"
 import { PostRegisterResendSchema } from "./store/auth/register/resend/route"
 import { requireVerifiedEmail } from "./middlewares/require-verified-email"
+import { requireVerifiedVendorEmail, requireVerifiedInviteEmail } from "./middlewares/require-verified-vendor-email"
+import { forceDraftUntilApproved } from "./middlewares/require-approved-vendor"
+import { authenticateVendorExceptPublic } from "./middlewares/authenticate-vendor"
+import { PostVendorRegisterStartSchema } from "./vendors/auth/register/start/route"
+import { PostVendorRegisterConfirmSchema } from "./vendors/auth/register/confirm/route"
+import { PostVendorRegisterResendSchema } from "./vendors/auth/register/resend/route"
 import { PostVendorPayoutSchema } from "./vendors/payouts/route"
+import { PostVendorVerificationSchema } from "./vendors/verification/route"
+import { PostVendorReviewReplySchema } from "./vendors/reviews/[id]/reply/route"
+import { PostVendorReturnSchema } from "./vendors/orders/[id]/returns/route"
+import { PostVendorRefundSchema } from "./vendors/orders/[id]/refund/route"
 import { PostVendorInventorySchema } from "./vendors/products/[id]/variants/[variant_id]/inventory/route"
+import { PostVendorProductsBatchSchema } from "./vendors/products/batch/route"
+import { PostBatchFulfillSchema } from "./vendors/orders/batch-fulfill/route"
+import { PutStockAlertsSchema } from "./vendors/stock-alerts/route"
 import { trackProductClick } from "./middlewares/analytics"
 import { PostCommentSchema } from "./store/videos/[id]/comments/route"
 import { PostAdminCreateDeliveryCompanySchema } from "./admin/delivery-companies/route"
 import { PostAdminCreateDeliveryDriverSchema } from "./admin/delivery-companies/[id]/drivers/route"
 import { PostAdminRejectPayoutSchema } from "./admin/payouts/[id]/reject/route"
+import { PostAdminRejectVerificationSchema } from "./admin/vendor-verifications/[id]/reject/route"
+import cors from "cors"
 import multer from "multer"
 import { ContainerRegistrationKeys, Modules } from "@medusajs/framework/utils"
 import jwt from "jsonwebtoken"
@@ -47,6 +64,7 @@ const PROVIDER_ID_MAP: Record<string, string> = {
   "kashflow":       "pp_kashflow_kashflow",
   "stripe":         "pp_stripe_stripe",
   "mbiyopay":       "pp_mbiyopay_mbiyopay",
+  "trustsend":      "pp_trustsend_trustsend",
   "system_default": "pp_system_default",
 }
 
@@ -396,8 +414,42 @@ async function linkGoogleAccountMiddleware(
   next()
 }
 
+/**
+ * CORS de l'espace vendeur.
+ *
+ * Medusa applique le CORS par espace de noms — `storeCors` sur /store,
+ * `adminCors` sur /admin, `authCors` sur /auth. Les routes /vendors sont
+ * personnalisées : elles n'en recevaient aucun. L'app mobile ne s'en
+ * apercevait pas (le natif n'applique pas le CORS), le tableau de bord web,
+ * lui, était bloqué dès le préflight.
+ *
+ * `VENDOR_CORS` liste les origines autorisées ; à défaut, on retombe sur
+ * `STORE_CORS`, qui contient déjà les domaines de la boutique.
+ */
+const vendorCors = cors({
+  origin: (process.env.VENDOR_CORS ?? process.env.STORE_CORS ?? "")
+    .split(",")
+    .map((o) => o.trim())
+    .filter(Boolean),
+  // Le jeton voyage dans l'en-tête Authorization, pas dans un cookie ; mais
+  // l'autoriser garde la porte ouverte si l'on passe un jour aux cookies.
+  credentials: true,
+  allowedHeaders: ["Content-Type", "Authorization", "x-publishable-api-key"],
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+})
+
 export default defineMiddlewares({
   routes: [
+    /*
+      Déclaré en tête : le préflight OPTIONS doit répondre avant
+      `authenticateVendorExceptPublic`, qui le rejetterait en 401 — un préflight
+      ne porte jamais de jeton.
+    */
+    {
+      matcher: "/vendors*",
+      middlewares: [vendorCors],
+    },
+
     // ─── GOOGLE AUTH CALLBACK INTERCEPTOR ─────────────────────────
     {
       matcher: "/auth/*/google/callback",
@@ -417,6 +469,15 @@ export default defineMiddlewares({
       matcher: "/store/payment-collections/:id/payment-sessions",
       method: ["POST"],
       middlewares: [normalizePaymentProviderId],
+    },
+
+    // ─── TRUSTSEND WEBHOOK — raw body ─────────────────────────────
+    // TrustSend signs the bytes it sends (X-Webhook-Signature, HMAC-SHA256); a body parsed and
+    // re-serialised no longer matches, so the route needs the original buffer to verify it.
+    {
+      matcher: "/hooks/trustsend",
+      method: ["POST"],
+      bodyParser: { preserveRawBody: true },
     },
 
     // ─── ADMIN DELIVERY ───────────────────────────────────────────
@@ -473,6 +534,37 @@ export default defineMiddlewares({
       ],
     },
 
+    // ─── ADMIN — REVUE DES DOSSIERS DE VÉRIFICATION VENDEUR ───────
+    {
+      matcher: "/admin/vendor-verifications",
+      method: ["GET"],
+      middlewares: [
+        authenticate("user", ["session", "bearer"]),
+      ],
+    },
+    {
+      matcher: "/admin/vendor-verifications/:id",
+      method: ["GET"],
+      middlewares: [
+        authenticate("user", ["session", "bearer"]),
+      ],
+    },
+    {
+      matcher: "/admin/vendor-verifications/:id/approve",
+      method: ["POST"],
+      middlewares: [
+        authenticate("user", ["session", "bearer"]),
+      ],
+    },
+    {
+      matcher: "/admin/vendor-verifications/:id/reject",
+      method: ["POST"],
+      middlewares: [
+        authenticate("user", ["session", "bearer"]),
+        validateAndTransformBody(PostAdminRejectVerificationSchema),
+      ],
+    },
+
     // ─── VENDOR AUTH ──────────────────────────────────────────────
     {
       matcher: "/vendors",
@@ -480,10 +572,38 @@ export default defineMiddlewares({
       middlewares: [
         authenticate("vendor", ["session", "bearer"], { allowUnregistered: true }),
         validateAndTransformBody(PostVendorCreateSchema),
+        requireVerifiedVendorEmail,
       ],
+    },
+
+    // ─── INSCRIPTION VENDEUR : VÉRIFICATION D'EMAIL (public) ──────
+    {
+      matcher: "/vendors/auth/register/start",
+      method: ["POST"],
+      middlewares: [validateAndTransformBody(PostVendorRegisterStartSchema)],
+    },
+    {
+      matcher: "/vendors/auth/register/confirm",
+      method: ["POST"],
+      middlewares: [validateAndTransformBody(PostVendorRegisterConfirmSchema)],
+    },
+    {
+      matcher: "/vendors/auth/register/resend",
+      method: ["POST"],
+      middlewares: [validateAndTransformBody(PostVendorRegisterResendSchema)],
     },
     {
       matcher: "/vendors/upload",
+      method: ["POST"],
+      middlewares: [
+        authenticate("vendor", ["session", "bearer"]),
+        upload.any(),
+      ],
+    },
+    // Pièces du dossier KYC : mêmes mécaniques que /vendors/upload, mais les
+    // fichiers sont créés en accès privé par le handler.
+    {
+      matcher: "/vendors/verification/documents",
       method: ["POST"],
       middlewares: [
         authenticate("vendor", ["session", "bearer"]),
@@ -495,7 +615,7 @@ export default defineMiddlewares({
     {
       matcher: "/vendors/*",
       middlewares: [
-        authenticate("vendor", ["session", "bearer"]),
+        authenticateVendorExceptPublic,
       ],
     },
 
@@ -506,6 +626,11 @@ export default defineMiddlewares({
       middlewares: [
         validateAndTransformBody(PutVendorMeSchema)
       ],
+    },
+    {
+      matcher: "/vendors/me/password",
+      method: ["POST"],
+      middlewares: [validateAndTransformBody(PostVendorPasswordSchema)],
     },
     {
       matcher: "/vendors/stock-locations",
@@ -521,6 +646,11 @@ export default defineMiddlewares({
       matcher: "/vendors/promotions",
       method: ["POST"],
       middlewares: [validateAndTransformBody(PostVendorPromotionSchema)],
+    },
+    {
+      matcher: "/vendors/promotions/:id",
+      method: ["POST"],
+      middlewares: [validateAndTransformBody(PostVendorPromotionUpdateSchema)],
     },
     {
       matcher: "/vendors/promotions/:id",
@@ -548,9 +678,32 @@ export default defineMiddlewares({
       middlewares: [authenticate("vendor", ["session", "bearer"])],
     },
     {
+      matcher: "/vendors/verification",
+      method: ["POST"],
+      middlewares: [validateAndTransformBody(PostVendorVerificationSchema)],
+    },
+    {
+      matcher: "/vendors/reviews/:id/reply",
+      method: ["POST"],
+      middlewares: [validateAndTransformBody(PostVendorReviewReplySchema)],
+    },
+    {
+      matcher: "/vendors/orders/:id/returns",
+      method: ["POST"],
+      middlewares: [validateAndTransformBody(PostVendorReturnSchema)],
+    },
+    {
+      matcher: "/vendors/orders/:id/refund",
+      method: ["POST"],
+      middlewares: [validateAndTransformBody(PostVendorRefundSchema)],
+    },
+    {
       matcher: "/vendors/admins",
       method: ["POST"],
-      middlewares: [validateAndTransformBody(PostVendorAdminSchema)],
+      middlewares: [
+        validateAndTransformBody(PostVendorAdminSchema),
+        requireVerifiedInviteEmail,
+      ],
     },
     {
       matcher: "/vendors/admins/:id",
@@ -560,17 +713,45 @@ export default defineMiddlewares({
     {
       matcher: "/vendors/products",
       method: ["POST"],
-      middlewares: [validateAndTransformBody(AdminCreateProduct)],
+      middlewares: [
+        validateAndTransformBody(AdminCreateProduct),
+        forceDraftUntilApproved,
+      ],
+    },
+    {
+      matcher: "/vendors/stock-alerts",
+      method: ["PUT"],
+      middlewares: [validateAndTransformBody(PutStockAlertsSchema)],
+    },
+    {
+      // Déclarée avant "/vendors/products/:id" : sinon "batch" serait interprété
+      // comme un identifiant de produit.
+      matcher: "/vendors/products/batch",
+      method: ["POST"],
+      middlewares: [
+        validateAndTransformBody(PostVendorProductsBatchSchema),
+        forceDraftUntilApproved,
+      ],
     },
     {
       matcher: "/vendors/products/:id",
       method: ["PUT"],
-      middlewares: [validateAndTransformBody(AdminUpdateProduct)],
+      middlewares: [
+        validateAndTransformBody(AdminUpdateProduct),
+        forceDraftUntilApproved,
+      ],
     },
     {
       matcher: "/vendors/products/:id/variants/:variant_id/inventory",
       method: ["POST"],
       middlewares: [validateAndTransformBody(PostVendorInventorySchema)],
+    },
+    {
+      // Avant "/vendors/orders/:id/..." pour que "batch-fulfill" ne soit pas
+      // lu comme un identifiant de commande.
+      matcher: "/vendors/orders/batch-fulfill",
+      method: ["POST"],
+      middlewares: [validateAndTransformBody(PostBatchFulfillSchema)],
     },
     {
       matcher: "/vendors/orders/:id/fulfill",

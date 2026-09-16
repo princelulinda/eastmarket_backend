@@ -16,6 +16,14 @@ export const GET = async (req: MedusaRequest, res: MedusaResponse) => {
       "thumbnail",
       "weight",
       "material",
+      // Renseignés par le vendeur et affichés dans les spécifications : sans
+      // eux la fiche produit n'avait que des valeurs de repli inventées
+      // (« Format standard », « Qualité certifiée »…).
+      "origin_country",
+      "length",
+      "width",
+      "height",
+      "type.*",
       "variants.id",
       "variants.title",
       "variants.sku",

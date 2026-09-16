@@ -29,18 +29,18 @@ export const GET = async (req: AuthenticatedMedusaRequest, res: MedusaResponse) 
   })
   
   // Fusionner les données et récupérer le dernier message & count unread pour chaque conversation
+  // Non lus pour le vendeur = messages du client pas encore lus. Une seule
+  // requête pour toute la liste, au lieu d'une par conversation.
+  const unreadCounts = await chatService.countUnreadByConversation(
+    conversations.map((c) => c.id),
+    "customer"
+  )
+
   const enrichedConversations = await Promise.all(
     conversations.map(async (conv) => {
       // Récupérer le dernier message
       const messages = await chatService.getMessages(conv.id, 1)
       const lastMessage = messages.length > 0 ? messages[0] : null
-
-      // Compter le nombre de messages non lus envoyés par le client (donc non lus par le vendeur)
-      const unreadMsgs = await chatService.listMessages({
-        conversation_id: conv.id,
-        sender_type: "customer",
-        is_read: false,
-      } as any)
 
       return {
         ...conv,
@@ -54,7 +54,7 @@ export const GET = async (req: AuthenticatedMedusaRequest, res: MedusaResponse) 
           file_url: lastMessage.file_url,
           created_at: lastMessage.created_at,
         } : null,
-        unread_count: unreadMsgs.length,
+        unread_count: unreadCounts[conv.id] ?? 0,
       }
     })
   )

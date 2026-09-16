@@ -6,6 +6,11 @@ console.log("STORE_CORS =", process.env.STORE_CORS) // restart nudge: pick up fo
 module.exports = defineConfig({
   admin: {
     disable: false,
+    // A defaut, defineConfig met MEDUSA_BACKEND_URL ici — et comme cette variable porte l'URL
+    // publique (elle sert au callback_url de MBIYOPAY), l'admin servi en local appelle la
+    // production. MEDUSA_ADMIN_BACKEND_URL permet de le pointer sur le serveur local sans
+    // toucher au reste ; absente, le comportement est exactement celui d'avant.
+    backendUrl: process.env.MEDUSA_ADMIN_BACKEND_URL || process.env.MEDUSA_BACKEND_URL,
   },
   projectConfig: {
     databaseUrl: process.env.DATABASE_URL,
@@ -18,6 +23,9 @@ module.exports = defineConfig({
     }
   },
   modules: [
+    {
+      resolve: "./src/modules/stock-alert",
+    },
     {
       resolve: "@medusajs/medusa/auth",
             dependencies: [Modules.CACHE, ContainerRegistrationKeys.LOGGER],
@@ -153,6 +161,21 @@ module.exports = defineConfig({
             options: {
               apiUrl: process.env.MBIYOPAY_API_URL || "https://dashboard.mbiyo.africa/api/v1/merchant",
               apiKey: process.env.MBIYOPAY_API_KEY,
+            },
+          },
+          {
+            // TrustSend mobile money — sandbox by default; point TRUSTSEND_API_URL at
+            // https://api.trustsend.africa/api/v1 with a ts_live_ key to go to production.
+            resolve: "./src/modules/trustsend",
+            id: "trustsend",
+            options: {
+              apiUrl: process.env.TRUSTSEND_API_URL || "https://sandbox-api.trustsend.africa/api/v1",
+              apiKey: process.env.TRUSTSEND_API_KEY,
+              // East Market enregistre ses prix en centièmes (price.amount = 2020 pour 20,20 $,
+              // et le storefront divise par 100 à l'affichage), alors que Medusa v2 considère
+              // ce nombre comme l'unité principale. Les montants arrivent donc déjà dans
+              // l'unité de TrustSend et ne doivent PAS être multipliés par 100.
+              amountUnit: "minor",
             },
           },
         ],

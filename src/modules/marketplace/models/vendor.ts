@@ -1,6 +1,7 @@
 import { model } from "@medusajs/framework/utils"
 import VendorAdmin from "./vendor-admin"
 import VendorPayout from "./vendor-payout"
+import VendorVerification from "./vendor-verification"
 
 const Vendor = model.define("vendor", {
   id: model.id().primaryKey(),
@@ -23,14 +24,22 @@ const Vendor = model.define("vendor", {
   employee_count: model.text().nullable(), // "1-10" | "11-50" | "51-200" | "201-500" | "500+"
   // Social links (JSON)
   social_links: model.json().nullable(),
-  // Credibility
+  // Horaires d'ouverture (JSON) : { mon: { open: "08:00", close: "18:00" } | null, … }
+  // Une journée à null signifie fermé ; le champ entier à null signifie non renseigné.
+  opening_hours: model.json().nullable(),
+  // Credibility — is_verified n'est positionné que par l'approbation d'un
+  // dossier KYC (voir vendor-verification.ts). Jamais modifiable par le vendeur.
   is_verified: model.boolean().default(false),
+  verified_at: model.dateTime().nullable(),
   response_rate: model.number().nullable(),   // percentage 0-100
   response_time: model.text().nullable(),     // "within 1 hour" | "within 24 hours" etc.
   admins: model.hasMany(() => VendorAdmin, {
     mappedBy: "vendor",
   }),
   payouts: model.hasMany(() => VendorPayout, {
+    mappedBy: "vendor",
+  }),
+  verifications: model.hasMany(() => VendorVerification, {
     mappedBy: "vendor",
   }),
   // Financial

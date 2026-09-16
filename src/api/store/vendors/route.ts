@@ -8,7 +8,7 @@ export const GET = async (req: MedusaRequest, res: MedusaResponse) => {
     entity: "vendor",
     fields: [
       "id", "handle", "name", "logo", "cover_image", "description",
-      "country", "city", "business_type", "is_verified",
+      "country", "city", "business_type", "is_verified", "verified_at",
       "response_rate", "response_time", "founded_year", "employee_count",
     ],
   })

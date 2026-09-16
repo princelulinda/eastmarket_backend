@@ -3,6 +3,7 @@ import { AuthenticatedMedusaRequest, MedusaResponse } from "@medusajs/framework/
 import { ContainerRegistrationKeys, MedusaError } from "@medusajs/framework/utils"
 import { MARKETPLACE_MODULE } from "../../../modules/marketplace"
 import MarketplaceModuleService from "../../../modules/marketplace/service"
+import { parseListParams, parseDateRange, paginationMeta } from "../list-params"
 
 export const PostVendorPayoutSchema = z.object({
   amount: z.number().int().positive(), // Montant en centimes
@@ -12,8 +13,12 @@ export const PostVendorPayoutSchema = z.object({
 
 type PostBody = z.infer<typeof PostVendorPayoutSchema>
 
+const SORTABLE = ["created_at", "amount"]
+
 export const GET = async (req: AuthenticatedMedusaRequest, res: MedusaResponse) => {
   const query = req.scope.resolve(ContainerRegistrationKeys.QUERY)
+  const params = parseListParams(req, { sortable: SORTABLE, defaultOrder: "-created_at" })
+  const { status } = req.query as Record<string, string | undefined>
 
   // 1. Récupérer le vendor de l'admin connecté
   const { data: [vendorAdmin] } = await query.graph({
@@ -26,14 +31,31 @@ export const GET = async (req: AuthenticatedMedusaRequest, res: MedusaResponse) 
     throw new MedusaError(MedusaError.Types.NOT_FOUND, "Vendor not found")
   }
 
+  const filters: Record<string, any> = { vendor_id: vendorAdmin.vendor.id }
+  if (status) {
+    filters.status = status.includes(",") ? status.split(",") : status
+  }
+  const createdAt = parseDateRange(req)
+  if (createdAt) {
+    filters.created_at = createdAt
+  }
+
   // 2. Récupérer l'historique des payouts pour ce vendor
-  const { data: payouts } = await query.graph({
+  const { data: payouts, metadata } = await query.graph({
     entity: "vendor_payout",
     fields: ["id", "amount", "status", "payment_method", "payment_details", "rejection_reason", "created_at"],
-    filters: { vendor_id: vendorAdmin.vendor.id }
+    filters,
+    pagination: {
+      skip: params.offset,
+      take: params.limit,
+      order: params.order,
+    },
   })
 
-  res.json({ payouts })
+  res.json({
+    payouts,
+    ...paginationMeta(params, metadata?.count ?? payouts.length),
+  })
 }
 
 export const POST = async (req: AuthenticatedMedusaRequest<PostBody>, res: MedusaResponse) => {

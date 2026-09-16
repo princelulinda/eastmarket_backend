@@ -1,5 +1,5 @@
 import { createWorkflow, transform, WorkflowResponse } from "@medusajs/framework/workflows-sdk"
-import { useQueryGraphStep, setAuthAppMetadataStep } from "@medusajs/medusa/core-flows"
+import { useQueryGraphStep, setAuthAppMetadataStep, emitEventStep } from "@medusajs/medusa/core-flows"
 import createVendorAdminStep from "./steps/create-vendor-admin"
 
 export type CreateVendorAdminWorkflowInput = {
@@ -35,6 +35,11 @@ const createVendorAdminWorkflow = createWorkflow(
       authIdentityId: input.authIdentityId,
       actorType: "vendor",
       value: vendorAdmin.id,
+    })
+
+    emitEventStep({
+      eventName: "vendor_admin.created",
+      data: { id: vendorAdmin.id },
     })
 
     return new WorkflowResponse({ vendorAdmin })

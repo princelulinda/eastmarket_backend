@@ -8,12 +8,19 @@ export const GET = async (req: MedusaRequest, res: MedusaResponse) => {
     limit = 20,
     offset = 0,
     category_id,
+    id,
     q,
   } = req.query as Record<string, any>
 
   const filters: Record<string, any> = { status: "published" }
   if (category_id) {
     filters["categories.id"] = Array.isArray(category_id) ? category_id : [category_id]
+  }
+  // Sélection explicite d'identifiants (`?id[]=prod_…`). Sans ce filtre, la
+  // vitrine qui résout les produits d'une vente flash recevait le début du
+  // catalogue : le rail affichait des articles hors promotion.
+  if (id) {
+    filters["id"] = Array.isArray(id) ? id : [id]
   }
   if (q) {
     filters["title"] = { $ilike: `%${q}%` }
@@ -31,9 +38,20 @@ export const GET = async (req: MedusaRequest, res: MedusaResponse) => {
       "thumbnail",
       "weight",
       "material",
+      // Renseignés par le vendeur et affichés dans les spécifications : sans
+      // eux la fiche produit n'avait que des valeurs de repli inventées
+      // (« Format standard », « Qualité certifiée »…).
+      "origin_country",
+      "length",
+      "width",
+      "height",
+      "type.*",
       "variants.id",
       "variants.title",
       "variants.sku",
+      // Porte le prix barré (metadata.compare_at_prices) : sans lui, la liste
+      // affiche le prix nu là où la fiche détail montre la remise.
+      "variants.metadata",
       "variants.prices.*",
       "variants.options.*",
       "variants.inventory.location_levels.*",

@@ -136,6 +136,30 @@ class ShortVideoService extends MedusaService({ ShortVideo, VideoLike, VideoComm
   }
 
 
+  /**
+   * Supprime un commentaire et ses réponses directes, puis réajuste le compteur
+   * de la vidéo. Renvoie le nombre total de commentaires effacés.
+   */
+  async deleteComment(videoId: string, commentId: string) {
+    const [comment] = await (this as any).listVideoComments({ id: commentId, video_id: videoId } as any)
+    if (!comment) {
+      return null
+    }
+
+    const replies = await (this as any).listVideoComments({ parent_id: commentId } as any)
+    const ids = [commentId, ...replies.map((r: any) => r.id)]
+
+    await (this as any).deleteVideoComments(ids)
+
+    const video = await (this as any).retrieveShortVideo(videoId)
+    await (this as any).updateShortVideos({
+      id: videoId,
+      comments_count: Math.max(0, (video.comments_count || 0) - ids.length),
+    } as any)
+
+    return { deleted_ids: ids, comments_count: Math.max(0, (video.comments_count || 0) - ids.length) }
+  }
+
   async getComments(videoId: string, limit = 20, offset = 0) {
     const comments = await (this as any).listVideoComments(
       { video_id: videoId } as any,

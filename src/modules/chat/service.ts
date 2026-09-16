@@ -17,6 +17,13 @@ export type MessageType =
   | "system"
 
 type CreateMessageInput = {
+  /**
+   * Id généré par le client (ULID). Permet à l'app d'afficher le message
+   * immédiatement sous sa clé définitive : l'écho socket et la synchro delta
+   * retombent alors sur la même clé, sans doublon ni réconciliation.
+   * Omis, l'id est généré par Medusa comme avant.
+   */
+  id?: string
   conversation_id: string
   sender_type: "customer" | "vendor"
   sender_id: string
@@ -82,6 +89,7 @@ class ChatModuleService extends MedusaService({ Conversation, Message }) {
     }
 
     const message = await this.createMessages({
+      ...(data.id ? { id: data.id } : {}),
       conversation_id: data.conversation_id,
       sender_type: data.sender_type,
       sender_id: data.sender_id,
@@ -102,11 +110,69 @@ class ChatModuleService extends MedusaService({ Conversation, Message }) {
     return message
   }
 
-  async getMessages(conversationId: string, limit = 50, offset = 0) {
-    return await this.listMessages(
-      { conversation_id: conversationId } as any,
-      { take: limit, skip: offset, order: { created_at: "DESC" } }
+  /**
+   * `after` : synchronisation delta. On filtre sur updated_at (et non
+   * created_at) pour que les modifications d'un message déjà connu du client
+   * — is_read, delivered_at, reactions — redescendent elles aussi. Le tri
+   * passe alors sur updated_at, sinon la pagination d'un delta serait
+   * incohérente avec le filtre.
+   */
+  async getMessages(
+    conversationId: string,
+    limit = 50,
+    offset = 0,
+    after?: Date
+  ) {
+    const filters: Record<string, unknown> = { conversation_id: conversationId }
+    if (after) {
+      filters.updated_at = { $gt: after }
+    }
+
+    return await this.listMessages(filters as any, {
+      take: limit,
+      skip: offset,
+      order: after ? { updated_at: "DESC" } : { created_at: "DESC" },
+    })
+  }
+
+  /**
+   * Compteurs de non-lus pour plusieurs conversations, en une seule requête.
+   *
+   * Les listes de conversations interrogeaient la base par conversation, et
+   * chargeaient à chaque fois les lignes entières juste pour en prendre la
+   * longueur. Sur une liste de 20 fils cela faisait 20 requêtes et le contenu
+   * de tous les messages non lus transitait pour produire 20 entiers.
+   *
+   * `senderType` désigne l'expéditeur des messages à compter : pour un client
+   * ce sont ceux du vendeur, et inversement.
+   */
+  async countUnreadByConversation(
+    conversationIds: string[],
+    senderType: "customer" | "vendor"
+  ): Promise<Record<string, number>> {
+    const counts: Record<string, number> = {}
+    if (conversationIds.length === 0) {
+      return counts
+    }
+
+    const unread = await this.listMessages(
+      {
+        conversation_id: conversationIds,
+        sender_type: senderType,
+        is_read: false,
+      } as any,
+      { select: ["id", "conversation_id"] } as any
     )
+
+    for (const msg of unread as any[]) {
+      // La conversation peut être exposée en colonne ou via la relation selon
+      // la projection : on accepte les deux pour ne pas compter zéro en silence.
+      const cid = msg.conversation_id ?? msg.conversation?.id
+      if (cid) {
+        counts[cid] = (counts[cid] ?? 0) + 1
+      }
+    }
+    return counts
   }
 
   async markMessagesAsRead(conversationId: string, readerType: "customer" | "vendor") {

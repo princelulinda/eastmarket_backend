@@ -14,6 +14,7 @@ export default async function seed({ container }: ExecArgs) {
     "pp_stripe_stripe",
     "pp_kashflow_kashflow",
     "pp_mbiyopay_mbiyopay",
+    "pp_trustsend_trustsend",
   ]
 
   logger.info("Linking payment providers to East region...")

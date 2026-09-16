@@ -11,7 +11,8 @@ export const GET = async (req: MedusaRequest, res: MedusaResponse) => {
       "phone", "email", "website",
       "country", "city", "address",
       "founded_year", "business_type", "main_products", "employee_count",
-      "social_links", "is_verified", "response_rate", "response_time",
+      "social_links", "is_verified", "verified_at", "response_rate", "response_time",
+      "opening_hours",
     ],
     filters: { id: req.params.id }
   })

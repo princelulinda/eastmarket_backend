@@ -4,6 +4,7 @@ import {
   WorkflowResponse
 } from "@medusajs/framework/workflows-sdk"
 import { 
+  emitEventStep,
   setAuthAppMetadataStep,
   useQueryGraphStep,
 } from "@medusajs/medusa/core-flows"
@@ -47,6 +48,13 @@ const createVendorWorkflow = createWorkflow(
       authIdentityId: input.authIdentityId,
       actorType: "vendor",
       value: vendorAdmin.id,
+    })
+
+    // Déclenche l'email de bienvenue (subscribers/vendor-welcome.ts).
+    // N'est émis qu'une fois le workflow terminé avec succès.
+    emitEventStep({
+      eventName: "vendor_admin.created",
+      data: { id: vendorAdmin.id },
     })
 
     const { data: vendorWithAdmin } = useQueryGraphStep({

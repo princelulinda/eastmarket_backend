@@ -6,34 +6,71 @@ import {
   HttpTypes,
 } from "@medusajs/framework/types"
 import { 
-  ContainerRegistrationKeys,
-  Modules
+  ContainerRegistrationKeys
 } from "@medusajs/framework/utils"
 import createVendorProductWorkflow from "../../../workflows/marketplace/create-vendor-product";
+import { parseListParams, paginationMeta } from "../list-params"
+
+/** Champs de la liste produits. */
+const LIST_FIELDS = [
+  "*",
+  "variants.*",
+  "variants.prices.*",
+  "variants.inventory.location_levels.*",
+]
+
+const SORTABLE = ["created_at", "updated_at", "title"]
 
 export const GET = async (
   req: AuthenticatedMedusaRequest,
   res: MedusaResponse
 ) => {
   const query = req.scope.resolve(ContainerRegistrationKeys.QUERY)
-  const pricingModule = req.scope.resolve(Modules.PRICING)
+  const params = parseListParams(req, { sortable: SORTABLE, defaultOrder: "-created_at" })
+  const { status, category_id } = req.query as Record<string, string | undefined>
 
+  // Seulement les identifiants : `vendor.products.*` rapatriait tout le catalogue,
+  // variantes, prix et niveaux de stock compris, avant toute pagination.
   const { data: [vendorAdmin] } = await query.graph({
     entity: "vendor_admin",
-    fields: [
-      "vendor.products.*", 
-      "vendor.products.variants.*", 
-      "vendor.products.variants.prices.*",
-      "vendor.products.variants.inventory.location_levels.*"
-    ],
+    fields: ["vendor.products.id"],
     filters: { id: [req.auth_context.actor_id] },
   })
 
-  const products = vendorAdmin.vendor.products || []
+  const productIds = (vendorAdmin?.vendor?.products || [])
+    .map((p: { id: string } | null) => p?.id)
+    .filter(Boolean) as string[]
+
+  if (productIds.length === 0) {
+    return res.json({ products: [], ...paginationMeta(params, 0) })
+  }
+
+  const filters: Record<string, any> = { id: productIds }
+
+  if (status) {
+    filters.status = status.includes(",") ? status.split(",") : status
+  }
+  if (category_id) {
+    filters["categories.id"] = category_id.includes(",") ? category_id.split(",") : category_id
+  }
+  if (params.q) {
+    filters.title = { $ilike: `%${params.q}%` }
+  }
+
+  const { data: products, metadata } = await query.graph({
+    entity: "product",
+    fields: LIST_FIELDS,
+    filters,
+    pagination: {
+      skip: params.offset,
+      take: params.limit,
+      order: params.order,
+    },
+  })
 
   // Injection de calculated_price pour compatibilité frontend via les données déjà chargées
   for (const product of products) {
-    for (const variant of product.variants) {
+    for (const variant of product.variants || []) {
       const v = variant as any
       const price = v.prices?.[0]
       if (price) {
@@ -47,7 +84,10 @@ export const GET = async (
     }
   }
 
-  res.json({ products })
+  res.json({
+    products,
+    ...paginationMeta(params, metadata?.count ?? products.length),
+  })
 }
 
 export const POST = async (
@@ -63,6 +103,10 @@ export const POST = async (
     })
 
   res.json({
-    product: result.product
+    product: result.product,
+    // Vrai quand forceDraftUntilApproved a basculé le produit en brouillon :
+    // le dashboard affiche un bandeau « en attente de vérification » plutôt
+    // que de laisser le vendeur croire que son produit est en ligne.
+    pending_verification: (req as any).pending_vendor_verification === true,
   })
 }

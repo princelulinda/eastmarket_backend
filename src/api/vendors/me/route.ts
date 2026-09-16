@@ -12,6 +12,25 @@ const SocialLinksSchema = z.object({
   tiktok: z.string().optional(),
 }).optional()
 
+/** "08:00" — heure de la journée sur 24 h. */
+const TimeSchema = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/, "Format attendu : HH:MM")
+
+/** Une journée fermée est représentée par null, pas par une plage vide. */
+const DayHoursSchema = z.object({
+  open: TimeSchema,
+  close: TimeSchema,
+}).strict().nullable()
+
+const OpeningHoursSchema = z.object({
+  mon: DayHoursSchema,
+  tue: DayHoursSchema,
+  wed: DayHoursSchema,
+  thu: DayHoursSchema,
+  fri: DayHoursSchema,
+  sat: DayHoursSchema,
+  sun: DayHoursSchema,
+}).strict().nullable().optional()
+
 export const PutVendorMeSchema = z.object({
   name: z.string().optional(),
   logo: z.string().optional(),
@@ -29,6 +48,7 @@ export const PutVendorMeSchema = z.object({
   employee_count: z.enum(["1-10", "11-50", "51-200", "201-500", "500+"]).optional(),
   social_links: SocialLinksSchema,
   response_time: z.string().optional(),
+  opening_hours: OpeningHoursSchema,
 }).strict()
 
 type PutBody = z.infer<typeof PutVendorMeSchema>
@@ -45,6 +65,7 @@ export const GET = async (req: AuthenticatedMedusaRequest, res: MedusaResponse) 
       "vendor.address", "vendor.founded_year", "vendor.business_type",
       "vendor.main_products", "vendor.employee_count", "vendor.social_links",
       "vendor.is_verified", "vendor.response_rate", "vendor.response_time",
+      "vendor.opening_hours",
       "vendor.balance", "vendor.admins.*"
     ],
     filters: { id: [req.auth_context.actor_id] }

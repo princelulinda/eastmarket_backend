@@ -15,7 +15,7 @@ export const GET = async (req: AuthenticatedMedusaRequest, res: MedusaResponse) 
 
   const { data: vendors } = await query.graph({
     entity: "vendor",
-    fields: ["id", "name", "handle", "logo", "is_verified"],
+    fields: ["id", "name", "handle", "logo", "is_verified", "verified_at"],
     filters: { id: vendorIds },
   })
 
