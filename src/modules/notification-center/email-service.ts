@@ -376,6 +376,143 @@ export function getOrderPlacedEmailTemplate(order: any) {
   })
 }
 
+// ── Reçu de paiement (client) ────────────────────────────────────────────
+
+/** Un moyen de paiement effectivement utilisé, tel qu'il figure sur le reçu. */
+export type PaymentReceiptLine = {
+  /** Libellé lisible, par exemple « Mobile Money · TrustSend ». */
+  label: string
+  /** Opérateur et numéro masqué, quand le fournisseur les renseigne. */
+  detail?: string | null
+  /** Référence de la transaction chez le fournisseur. */
+  reference?: string | null
+  amount: number
+}
+
+/**
+ * Le reçu : la preuve que l'argent a bougé.
+ *
+ * Volontairement distinct de la confirmation de commande, qui ne parle que de logistique. Un
+ * client qui cherche « combien ai-je payé, par quel moyen, sous quelle référence » ne doit pas
+ * avoir à le déduire d'un email de suivi.
+ */
+export function getPaymentReceiptEmailTemplate(
+  order: any,
+  receipt: { lines: PaymentReceiptLine[]; paidAmount: number; paidAt: Date }
+) {
+  const currency = order.currency_code
+  const paidOn = receipt.paidAt.toLocaleDateString("fr-FR", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  })
+  const paidAtTime = receipt.paidAt.toLocaleTimeString("fr-FR", {
+    hour: "2-digit",
+    minute: "2-digit",
+  })
+
+  const methods = receipt.lines.map((line) => `
+    <tr>
+      <td style="padding: 12px 0; border-bottom: 1px solid ${LINE};">
+        <strong>${line.label}</strong>
+        ${line.detail ? `<br><span style="font-size: 12px; color: ${INK_SOFT};">${line.detail}</span>` : ""}
+        ${line.reference ? `<br><span style="font-size: 12px; color: ${INK_SOFT};">Référence : ${line.reference}</span>` : ""}
+      </td>
+      <td style="padding: 12px 0; border-bottom: 1px solid ${LINE}; text-align: right; white-space: nowrap;">
+        ${formatMoney(line.amount, currency)}
+      </td>
+    </tr>
+  `).join("")
+
+  const body = `
+    <h2>Paiement reçu</h2>
+    <p>Bonjour,</p>
+    <p>Nous confirmons la réception de votre paiement pour la commande <strong>#${order.display_id}</strong>.</p>
+
+    <div class="card" style="text-align:center;">
+      <p class="muted" style="margin:0 0 6px;">Montant réglé</p>
+      <p style="margin:0; font-size: 28px; font-weight: bold; color: ${BRAND};">${formatMoney(receipt.paidAmount, currency)}</p>
+      <p class="muted" style="margin:8px 0 0;">Le ${paidOn} à ${paidAtTime}</p>
+    </div>
+
+    <h3>Moyen de paiement</h3>
+    <table class="table"><tbody>${methods}</tbody></table>
+
+    <h3>Détail de la commande</h3>
+    ${itemsTable(order.items || [], currency)}
+    <table class="table" style="margin-top: 4px;">
+      <tbody>
+        <tr>
+          <td style="padding: 8px 0;">Sous-total</td>
+          <td style="padding: 8px 0; text-align: right;">${formatMoney(order.subtotal, currency)}</td>
+        </tr>
+        <tr>
+          <td style="padding: 8px 0;">Livraison</td>
+          <td style="padding: 8px 0; text-align: right;">${formatMoney(order.shipping_total, currency)}</td>
+        </tr>
+        <tr>
+          <td style="padding: 8px 0;">Taxes</td>
+          <td style="padding: 8px 0; text-align: right;">${formatMoney(order.tax_total, currency)}</td>
+        </tr>
+        <tr style="border-top: 2px solid ${LINE};">
+          <td style="padding: 12px 0 0; font-size: 17px; font-weight: bold;">Total</td>
+          <td style="padding: 12px 0 0; text-align: right; font-size: 17px; font-weight: bold; color: ${BRAND};">${formatMoney(order.total, currency)}</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <p class="muted" style="margin-top: 24px;">Conservez cet email : il tient lieu de reçu pour cette commande.</p>
+
+    <div style="text-align: center; margin-top: 20px;">
+      <a href="${SITE_URL}" class="button">Voir ma commande</a>
+    </div>
+  `
+
+  return emailShell({
+    title: `Reçu de paiement — commande #${order.display_id}`,
+    preheader: `Paiement de ${formatMoney(receipt.paidAmount, currency)} reçu pour la commande #${order.display_id}.`,
+    headerTag: "Paiement reçu",
+    bodyHtml: body,
+  })
+}
+
+// ── À régler à la livraison (client) ─────────────────────────────────────
+
+/**
+ * Le pendant du reçu quand rien n'a été encaissé. Envoyer le même email que pour un paiement
+ * en ligne laisserait croire au client qu'il n'a plus rien à payer.
+ */
+export function getPaymentDueEmailTemplate(order: any) {
+  const currency = order.currency_code
+
+  const body = `
+    <h2>Montant à régler à la livraison</h2>
+    <p>Bonjour,</p>
+    <p>Votre commande <strong>#${order.display_id}</strong> est enregistrée. Elle n'a pas été réglée en ligne : le montant est à payer au livreur au moment de la remise.</p>
+
+    <div class="card" style="text-align:center;">
+      <p class="muted" style="margin:0 0 6px;">À payer à la livraison</p>
+      <p style="margin:0; font-size: 28px; font-weight: bold; color: ${BRAND};">${formatMoney(order.total, currency)}</p>
+    </div>
+
+    <h3>Détail de la commande</h3>
+    ${itemsTable(order.items || [], currency)}
+
+    <p class="muted" style="margin-top: 24px;">Préparez si possible l'appoint : le livreur ne dispose pas toujours de monnaie.</p>
+
+    <div style="text-align: center; margin-top: 20px;">
+      <a href="${SITE_URL}" class="button">Voir ma commande</a>
+    </div>
+  `
+
+  return emailShell({
+    title: `Commande #${order.display_id} — à régler à la livraison`,
+    preheader: `${formatMoney(order.total, currency)} à régler au livreur pour la commande #${order.display_id}.`,
+    headerTag: "Paiement à la livraison",
+    bodyHtml: body,
+  })
+}
+
 // ── Nouvelle commande (vendeur) ──────────────────────────────────────────
 
 export function getVendorOrderEmailTemplate(order: any, vendorItems: any[]) {

@@ -168,6 +168,12 @@ l'intervalle de poll du storefront.
 
 Une fois la session `authorized`, compléter le panier comme pour n'importe quel autre fournisseur.
 
+La commande créée émet `order.placed`, ce qui déclenche deux emails distincts vers le client :
+la confirmation de commande (`order-notifications.ts`, logistique) et le **reçu de paiement**
+(`payment-receipt.ts`), qui reprend l'opérateur, le numéro masqué et le `deposit_id` comme
+référence de transaction. Une commande réglée à la livraison reçoit à la place un rappel du
+montant dû — le reçu ne part que si de l'argent a réellement été encaissé.
+
 ---
 
 ## 3. Côté backend

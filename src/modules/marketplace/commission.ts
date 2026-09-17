@@ -1,7 +1,7 @@
 /**
  * Part prélevée par la marketplace sur chaque vente.
  *
- * Était codée en dur dans subscribers/vendor-payout-on-delivery.ts. Un
+ * Était codée en dur dans le subscriber de versement. Un
  * remboursement doit reprendre au vendeur exactement ce qui lui a été crédité :
  * les deux calculs doivent donc lire la même valeur, sinon un aller-retour
  * commande → remboursement laisse de l'argent dans la balance du vendeur.

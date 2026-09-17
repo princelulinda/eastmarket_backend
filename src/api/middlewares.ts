@@ -795,6 +795,20 @@ export default defineMiddlewares({
         authenticate("customer", ["session", "bearer"]),
       ],
     },
+    {
+      matcher: "/store/orders/:id/cancel",
+      method: ["POST"],
+      middlewares: [
+        authenticate("customer", ["session", "bearer"]),
+      ],
+    },
+    {
+      matcher: "/store/orders/:id/report-issue",
+      method: ["POST"],
+      middlewares: [
+        authenticate("customer", ["session", "bearer"]),
+      ],
+    },
 
     // ─── STORE — CUSTOMERS ────────────────────────────────────────
     {
