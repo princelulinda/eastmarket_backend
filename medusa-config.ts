@@ -18,7 +18,7 @@ const redisModules = REDIS_URL
       },
       {
         resolve: "@medusajs/medusa/workflow-engine-redis",
-        options: { redisUrl: REDIS_URL },
+        options: { redis: { redisUrl: REDIS_URL } },
       },
       {
         resolve: "@medusajs/medusa/locking",
