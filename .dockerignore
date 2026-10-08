@@ -1,0 +1,16 @@
+.git
+.env
+.env.*
+!.env.template
+node_modules
+.medusa
+.kiro
+.antigravitycli
+uploads
+coverage
+*.sql
+*.dump
+*.log
+Dockerfile
+.dockerignore
+static

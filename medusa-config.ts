@@ -1,6 +1,44 @@
 import { loadEnv, defineConfig, Modules, ContainerRegistrationKeys } from '@medusajs/framework/utils'
 
 loadEnv(process.env.NODE_ENV || "development", process.cwd())
+
+// En production (Docker/Coolify), REDIS_URL active les modules Redis : bus d'événements,
+// cache, moteur de workflows et verrous partagés. Sans REDIS_URL (dev local), on garde
+// les implémentations en mémoire.
+const REDIS_URL = process.env.REDIS_URL
+const redisModules = REDIS_URL
+  ? [
+      {
+        resolve: "@medusajs/medusa/event-bus-redis",
+        options: { redisUrl: REDIS_URL },
+      },
+      {
+        resolve: "@medusajs/medusa/cache-redis",
+        options: { redisUrl: REDIS_URL },
+      },
+      {
+        resolve: "@medusajs/medusa/workflow-engine-redis",
+        options: { redisUrl: REDIS_URL },
+      },
+      {
+        resolve: "@medusajs/medusa/locking",
+        options: {
+          providers: [
+            {
+              resolve: "@medusajs/medusa/locking-redis",
+              id: "locking-redis",
+              is_default: true,
+              options: { redisUrl: REDIS_URL },
+            },
+          ],
+        },
+      },
+    ]
+  : [
+      {
+        resolve: "@medusajs/medusa/event-bus-local",
+      },
+    ]
 console.log("NODE_ENV =", process.env.NODE_ENV)
 console.log("STORE_CORS =", process.env.STORE_CORS) // restart nudge: pick up follow + referral routes
 module.exports = defineConfig({
@@ -14,6 +52,7 @@ module.exports = defineConfig({
   },
   projectConfig: {
     databaseUrl: process.env.DATABASE_URL,
+    redisUrl: REDIS_URL,
     http: {
       storeCors: process.env.STORE_CORS!,
       adminCors: process.env.ADMIN_CORS!,
@@ -54,9 +93,7 @@ module.exports = defineConfig({
         ],
       },
     },
-    {
-      resolve: "@medusajs/medusa/event-bus-local",
-    },
+    ...redisModules,
     {
       resolve: "@medusajs/medusa/file",
       options: {
