@@ -21,8 +21,9 @@ RUN yarn build
 FROM node:22-bookworm-slim
 WORKDIR /app
 
-# ffmpeg sert au transcodage des vidéos courtes (src/modules/short-video/transcode.ts).
-RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg ca-certificates tini \
+# ffmpeg sert au transcodage des vidéos courtes (src/modules/short-video/transcode.ts),
+# curl au healthcheck de Coolify.
+RUN apt-get update && apt-get install -y --no-install-recommends ffmpeg ca-certificates curl tini \
     && rm -rf /var/lib/apt/lists/*
 
 ENV NODE_ENV=production \
